@@ -243,8 +243,6 @@ Use this for on-premises or single-VM deployments, including Google Compute Engi
 - Optional local Redis 7
 - One-shot migration and seed containers
 
-The full VM-specific guide is in [docs/gce-docker-compose.md](docs/gce-docker-compose.md).
-
 ### Step 1 — Prepare the environment file
 
 ```bash

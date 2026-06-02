@@ -1,3 +1,6 @@
+> [!WARNING]
+> **This repo is 100% vibecoded.** Every line was generated through AI-assisted, conversational development. It is provided **as-is, with no warranty** — it may contain bugs, security gaps, or incomplete logic. Review, test, and audit it thoroughly before using it in production. Use at your own risk.
+
 <div align="center">
 
 # PepeteX
@@ -5,7 +8,7 @@
 **AI-powered presentation generator for teams.**  
 Generate, edit, and export polished PPTX slides using your own AI providers — fully self-hosted.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Node 24](https://img.shields.io/badge/node-24.x-brightgreen)](https://nodejs.org)
 [![Built with Nuxt 4](https://img.shields.io/badge/Nuxt-4-00DC82?logo=nuxt.js)](https://nuxt.com)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-blue?logo=typescript)](https://www.typescriptlang.org)
@@ -166,7 +169,6 @@ pepetex/
 │  ├─ storage/      GCS adapter, signed URLs, asset metadata
 │  ├─ usage/        Token + cost accounting
 │  └─ audit/        Audit log helpers
-└─ docs/            Architecture, AI contracts, slide contract, deployment
 ```
 
 ---
@@ -214,7 +216,7 @@ gcloud run deploy pepetex-web   --image gcr.io/$PROJECT/pepetex-web:latest   ...
 gcloud run deploy pepetex-worker --image gcr.io/$PROJECT/pepetex-worker:latest ...
 ```
 
-**Full step-by-step instructions →** [RUNNING.md](RUNNING.md). VM-specific Compose details are also documented in [docs/gce-docker-compose.md](docs/gce-docker-compose.md).
+**Full step-by-step instructions →** [RUNNING.md](RUNNING.md).
 
 ---
 
@@ -257,24 +259,6 @@ See [.env.example](.env.example) for all variables with defaults.
 
 ---
 
-## V1 Scope
-
-PepeteX V1 is intentionally scoped. The following are **not included in V1** and are not on the roadmap for V1:
-
-- Public SaaS billing or Stripe integration
-- Self-registration (admin creates all accounts)
-- Email invitations
-- Two-factor authentication
-- Real-time collaboration
-- Raw HTML/CSS slide editing
-- PPTX import (import of existing presentations)
-- PDF or image export
-- Speaker notes generation
-- Trash / restore
-- Revision comparison UI
-
----
-
 ## Security
 
 - Passwords hashed with scrypt
@@ -284,8 +268,6 @@ PepeteX V1 is intentionally scoped. The following are **not included in V1** and
 - Slide preview runs in a sandboxed iframe with strict CSP
 - All admin actions write to a tamper-evident audit log
 - No secrets committed to the repository
-
-See [docs/security-review.md](docs/security-review.md) for the full OWASP Top 10 review.
 
 ---
 
@@ -297,17 +279,13 @@ See [docs/security-review.md](docs/security-review.md) for the full OWASP Top 10
 4. Run checks: `corepack yarn lint && corepack yarn typecheck && corepack yarn test --run`
 5. Open a pull request
 
-Before implementing new features, read:
-- [docs/implementation-plan.md](docs/implementation-plan.md) — product decisions and V1 boundaries
-- [docs/architecture.md](docs/architecture.md) — technical constraints
-- [docs/ai-contracts.md](docs/ai-contracts.md) — AI workflow contracts
-- [docs/slide-html-contract.md](docs/slide-html-contract.md) — slide HTML rules
+Follow the existing TypeScript and ESLint style.
 
 ---
 
 ## License
 
-[MIT](LICENSE)
+[Apache 2.0](LICENSE)
 
 ---
 
