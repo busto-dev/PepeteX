@@ -1,12 +1,17 @@
 > [!WARNING]
 > **This repo is 100% vibecoded.** Every line was generated through AI-assisted, conversational development. It is provided **as-is, with no warranty** — it may contain bugs, security gaps, or incomplete logic. Review, test, and audit it thoroughly before using it in production. Use at your own risk.
 
+> [!WARNING]
+> **Known Issue.** This app is tested only using Gemini as provider, using other provider (e.g OpenAI Compatible) are still on-progress and might not working properly
+
+
 <div align="center">
 
 # PepeteX
 
 **AI-powered presentation generator for teams.**  
 Generate, edit, and export polished PPTX slides using your own AI providers — fully self-hosted.
+
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Node 24](https://img.shields.io/badge/node-24.x-brightgreen)](https://nodejs.org)
@@ -24,11 +29,23 @@ Generate, edit, and export polished PPTX slides using your own AI providers — 
 
 PepeteX is a **self-hosted, chat-based presentation generator** built for internal company use. You describe what you need — PepeteX generates a full PPTX deck, refines individual slides, and handles all the design work automatically using your existing AI provider subscriptions.
 
+<img width="1965" height="1154" alt="frame_generic_light (1)" src="https://github.com/user-attachments/assets/107d7146-bc8e-4e5f-87d6-990dffb372c7" />
+
+
 No SaaS lock-in. No data leaving your infrastructure. Bring your own AI keys.
 
 ---
 
 ## Features
+
+See how it generate design system
+
+<img width="800" height="450" alt="ezgif-2d0057cff5ba09be" src="https://github.com/user-attachments/assets/7cbea3d5-ebfa-424b-88a1-55052c2d7bdf" />
+
+Use it when generating deck
+
+<img width="800" height="450" alt="ezgif-264e783af054d66b" src="https://github.com/user-attachments/assets/5ab08235-6a8f-4590-878a-e90d9ba4cd2b" />
+
 
 ### Core Generation
 - **Full-deck generation** — describe a topic in chat, get a complete PPTX in minutes
