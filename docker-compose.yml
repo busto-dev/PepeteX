@@ -1,0 +1,82 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: pepetex
+      POSTGRES_USER: pepetex
+      POSTGRES_PASSWORD: pepetex
+    ports:
+      - "5435:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pepetex -d pepetex"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  # Local app services. VM-only nginx/certbot pieces stay in docker-compose.vm.yml.
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    image: pepetex-web:latest
+    env_file: .env
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://pepetex:pepetex@postgres:5432/pepetex
+      - REDIS_URL=redis://redis:6379
+      - INTERNAL_EXPORT_BASE_URL=http://web:3000
+      - OBJECT_STORAGE_DRIVER=local
+      - LOCAL_OBJECT_STORAGE_ROOT=/data/pepetex-storage
+    volumes:
+      - object-storage:/data/pepetex-storage
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    image: pepetex-worker:latest
+    env_file: .env
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://pepetex:pepetex@postgres:5432/pepetex
+      - REDIS_URL=redis://redis:6379
+      - APP_URL=http://web:3000
+      - PEPETEX_CHROMIUM_EXECUTABLE_PATH=/ms-playwright/chromium-1217/chrome-linux64/chrome
+      - OBJECT_STORAGE_DRIVER=local
+      - LOCAL_OBJECT_STORAGE_ROOT=/data/pepetex-storage
+    shm_size: "1gb"
+    volumes:
+      - object-storage:/data/pepetex-storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  redis-data:
+  object-storage:

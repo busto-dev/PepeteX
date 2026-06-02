@@ -1,0 +1,36 @@
+services:
+  web:
+    environment:
+      GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS_CONTAINER:-/var/secrets/google/application_default_credentials.json}
+    volumes:
+      - type: bind
+        source: ${GOOGLE_APPLICATION_CREDENTIALS_HOST:?Set GOOGLE_APPLICATION_CREDENTIALS_HOST to a service-account key or gcloud ADC file on the host.}
+        target: ${GOOGLE_APPLICATION_CREDENTIALS_CONTAINER:-/var/secrets/google/application_default_credentials.json}
+        read_only: true
+
+  worker:
+    environment:
+      GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS_CONTAINER:-/var/secrets/google/application_default_credentials.json}
+    volumes:
+      - type: bind
+        source: ${GOOGLE_APPLICATION_CREDENTIALS_HOST:?Set GOOGLE_APPLICATION_CREDENTIALS_HOST to a service-account key or gcloud ADC file on the host.}
+        target: ${GOOGLE_APPLICATION_CREDENTIALS_CONTAINER:-/var/secrets/google/application_default_credentials.json}
+        read_only: true
+
+  migrate:
+    environment:
+      GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS_CONTAINER:-/var/secrets/google/application_default_credentials.json}
+    volumes:
+      - type: bind
+        source: ${GOOGLE_APPLICATION_CREDENTIALS_HOST:?Set GOOGLE_APPLICATION_CREDENTIALS_HOST to a service-account key or gcloud ADC file on the host.}
+        target: ${GOOGLE_APPLICATION_CREDENTIALS_CONTAINER:-/var/secrets/google/application_default_credentials.json}
+        read_only: true
+
+  seed:
+    environment:
+      GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS_CONTAINER:-/var/secrets/google/application_default_credentials.json}
+    volumes:
+      - type: bind
+        source: ${GOOGLE_APPLICATION_CREDENTIALS_HOST:?Set GOOGLE_APPLICATION_CREDENTIALS_HOST to a service-account key or gcloud ADC file on the host.}
+        target: ${GOOGLE_APPLICATION_CREDENTIALS_CONTAINER:-/var/secrets/google/application_default_credentials.json}
+        read_only: true

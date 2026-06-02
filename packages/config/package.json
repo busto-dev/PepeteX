@@ -1,0 +1,17 @@
+{
+  "name": "@pepetex/config",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "lint": "eslint .",
+    "test": "vitest run --passWithNoTests",
+    "test:api": "vitest run --passWithNoTests",
+    "test:e2e": "vitest run --passWithNoTests",
+    "test:export": "vitest run --passWithNoTests",
+    "test:unit": "vitest run --passWithNoTests",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  }
+}

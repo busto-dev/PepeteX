@@ -1,0 +1,25 @@
+{
+  "name": "@pepetex/html-contract",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:api": "vitest run --passWithNoTests",
+    "test:e2e": "vitest run --passWithNoTests",
+    "test:export": "vitest run --passWithNoTests",
+    "test:unit": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "jsdom": "^26.1.0",
+    "postcss": "^8.5.3"
+  },
+  "devDependencies": {
+    "@types/jsdom": "^21.1.7",
+    "vitest": "^3.1.2"
+  }
+}

@@ -1,0 +1,1 @@
+ALTER TYPE "AssetRole" ADD VALUE 'FONT';

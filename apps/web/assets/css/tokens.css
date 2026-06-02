@@ -1,0 +1,194 @@
+/* PepeteX Design Tokens — bespoke design system
+   ------------------------------------------------------------
+   Light + dark, semantic. Source of truth for color/space/radius/
+   shadow/typography/motion. Any UI primitive should consume these. */
+
+:root {
+  /* Palette — neutral scale (warm-cool blend) */
+  --px-neutral-0: #ffffff;
+  --px-neutral-25: #fbfbfa;
+  --px-neutral-50: #f7f7f6;
+  --px-neutral-100: #f0f0ee;
+  --px-neutral-200: #e6e6e3;
+  --px-neutral-300: #d1d1cd;
+  --px-neutral-400: #a3a39d;
+  --px-neutral-500: #76766f;
+  --px-neutral-600: #56564f;
+  --px-neutral-700: #3d3d37;
+  --px-neutral-800: #26261f;
+  --px-neutral-900: #18181a;
+  --px-neutral-950: #0d0d0f;
+  --px-neutral-1000: #050507;
+
+  /* Accent — pink to purple gradient */
+  --px-accent-50: #fdf2f8;
+  --px-accent-100: #fce7f3;
+  --px-accent-200: #fbcfe8;
+  --px-accent-300: #f9a8d4;
+  --px-accent-400: #f472b6;
+  --px-accent-500: #db2777;
+  --px-accent-600: #be185d;
+  --px-accent-700: #9d174d;
+  --px-accent-800: #831843;
+  --px-accent-900: #6b1237;
+
+  /* Accent end — purple for gradients */
+  --px-accent-end: #c026d3;
+  --px-accent-grad: linear-gradient(135deg, var(--px-accent-500), var(--px-accent-end));
+  --px-accent-glow: rgba(219, 39, 119, 0.14);
+  --px-accent-glow-strong: rgba(219, 39, 119, 0.24);
+  --px-accent-border: rgba(219, 39, 119, 0.18);
+
+  /* Semantics */
+  --px-success-500: #10b981;
+  --px-warning-500: #d97706;
+  --px-danger-500: #e11d48;
+  --px-info-500: #0891b2;
+  --px-success-soft: rgba(16, 185, 129, 0.10);
+  --px-success-border: rgba(16, 185, 129, 0.22);
+  --px-warning-soft: rgba(217, 119, 6, 0.10);
+  --px-warning-border: rgba(217, 119, 6, 0.22);
+  --px-danger-soft: rgba(225, 29, 72, 0.10);
+  --px-danger-border: rgba(225, 29, 72, 0.22);
+  --px-info-soft: rgba(8, 145, 178, 0.10);
+  --px-info-border: rgba(8, 145, 178, 0.22);
+
+  /* Semantic color tokens — light mode defaults */
+  --px-bg: #f6f7f8;
+  --px-bg-subtle: var(--px-neutral-100);
+  --px-bg-muted: var(--px-neutral-200);
+  --px-surface: var(--px-neutral-0);
+  --px-surface-raised: #fafafa;
+  --px-surface-high: #f1f2f4;
+  --px-surface-overlay: rgba(255, 255, 255, 0.92);
+  --px-surface-sunken: var(--px-neutral-25);
+
+  --px-fg: var(--px-neutral-900);
+  --px-fg-muted: var(--px-neutral-600);
+  --px-fg-subtle: var(--px-neutral-500);
+  --px-fg-on-accent: var(--px-neutral-0);
+
+  --px-border: rgba(13, 13, 15, 0.08);
+  --px-border-strong: rgba(13, 13, 15, 0.14);
+  --px-border-subtle: rgba(13, 13, 15, 0.05);
+
+  --px-accent: var(--px-accent-600);
+  --px-accent-hover: var(--px-accent-600);
+  --px-accent-soft: rgba(240, 24, 122, 0.08);
+  --px-accent-soft-fg: var(--px-accent-700);
+
+  --px-focus-ring: 0 0 0 2px var(--px-bg), 0 0 0 4px rgba(240, 24, 122, 0.40);
+
+  /* Type */
+  --px-font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --px-font-mono: 'JetBrains Mono', 'SFMono-Regular', ui-monospace, 'Menlo', 'Consolas', monospace;
+  --px-font-display: var(--px-font-sans);
+
+  /* Type scale (clamp-friendly, modular ~1.18) */
+  --px-text-2xs: 0.6875rem;   /* 11 */
+  --px-text-xs: 0.75rem;      /* 12 */
+  --px-text-sm: 0.8125rem;    /* 13 */
+  --px-text-base: 0.9375rem;  /* 15 */
+  --px-text-md: 1rem;         /* 16 */
+  --px-text-lg: 1.125rem;     /* 18 */
+  --px-text-xl: 1.375rem;     /* 22 */
+  --px-text-2xl: 1.75rem;     /* 28 */
+  --px-text-3xl: 2.25rem;     /* 36 */
+  --px-text-4xl: 3rem;        /* 48 */
+  --px-text-5xl: 3.75rem;     /* 60 */
+
+  /* Semantic typography utilities */
+  --px-text-display: 700 20px/1.2 var(--px-font-sans);
+  --px-text-h2: 700 16px/1.3 var(--px-font-sans);
+  --px-text-h3: 600 14px/1.4 var(--px-font-sans);
+  --px-text-body: 400 13px/1.5 var(--px-font-sans);
+  --px-text-small: 400 12px/1.5 var(--px-font-sans);
+  --px-text-label: 700 10px/1 var(--px-font-sans);
+
+  /* Spacing — 4px base */
+  --px-space-1: 0.25rem;
+  --px-space-2: 0.5rem;
+  --px-space-3: 0.75rem;
+  --px-space-4: 1rem;
+  --px-space-5: 1.25rem;
+  --px-space-6: 1.5rem;
+  --px-space-8: 2rem;
+  --px-space-10: 2.5rem;
+  --px-space-12: 3rem;
+  --px-space-16: 4rem;
+
+  /* Radius */
+  --px-radius-xs: 4px;
+  --px-radius-sm: 6px;
+  --px-radius-md: 8px;
+  --px-radius-lg: 8px;
+  --px-radius-xl: 10px;
+  --px-radius-2xl: 12px;
+  --px-radius-3xl: 16px;
+  --px-radius-full: 9999px;
+
+  /* Shadows — soft, layered */
+  --px-shadow-xs: 0 1px 2px rgba(13, 13, 15, 0.04);
+  --px-shadow-sm: 0 1px 3px rgba(13, 13, 15, 0.06), 0 1px 2px rgba(13, 13, 15, 0.04);
+  --px-shadow-md: 0 4px 12px rgba(13, 13, 15, 0.06), 0 2px 4px rgba(13, 13, 15, 0.04);
+  --px-shadow-lg: 0 16px 32px -8px rgba(13, 13, 15, 0.10), 0 8px 16px -8px rgba(13, 13, 15, 0.06);
+  --px-shadow-xl: 0 32px 64px -16px rgba(13, 13, 15, 0.16), 0 16px 32px -16px rgba(13, 13, 15, 0.08);
+
+  /* Motion */
+  --px-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --px-ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --px-ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --px-duration-fast: 120ms;
+  --px-duration-base: 180ms;
+  --px-duration-slow: 280ms;
+
+  /* Layout */
+  --px-sidebar-w: 232px;
+  --px-sidebar-w-collapsed: 60px;
+  --px-topbar-h: 52px;
+  --px-content-max: 1280px;
+}
+
+/* Dark mode — class-based via @nuxt/color-mode */
+.dark {
+  color-scheme: dark;
+
+  --px-bg: var(--px-neutral-1000);
+  --px-bg-subtle: var(--px-neutral-950);
+  --px-bg-muted: var(--px-neutral-900);
+  --px-surface: var(--px-neutral-950);
+  --px-surface-raised: var(--px-neutral-900);
+  --px-surface-high: var(--px-neutral-800);
+  --px-surface-overlay: rgba(13, 13, 15, 0.90);
+  --px-surface-sunken: var(--px-neutral-1000);
+
+  --px-fg: var(--px-neutral-50);
+  --px-fg-muted: var(--px-neutral-400);
+  --px-fg-subtle: var(--px-neutral-500);
+
+  --px-border: rgba(255, 255, 255, 0.08);
+  --px-border-strong: rgba(255, 255, 255, 0.16);
+  --px-border-subtle: rgba(255, 255, 255, 0.04);
+
+  --px-accent: var(--px-accent-400);
+  --px-accent-hover: var(--px-accent-300);
+  --px-accent-soft: rgba(240, 24, 122, 0.16);
+  --px-accent-soft-fg: var(--px-accent-200);
+
+  --px-focus-ring: 0 0 0 2px var(--px-bg), 0 0 0 4px rgba(240, 24, 122, 0.45);
+
+  --px-shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --px-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.5), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --px-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.45), 0 2px 4px rgba(0, 0, 0, 0.3);
+  --px-shadow-lg: 0 16px 32px -8px rgba(0, 0, 0, 0.6), 0 8px 16px -8px rgba(0, 0, 0, 0.4);
+  --px-shadow-xl: 0 32px 64px -16px rgba(0, 0, 0, 0.7), 0 16px 32px -16px rgba(0, 0, 0, 0.5);
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --px-duration-fast: 0ms;
+    --px-duration-base: 0ms;
+    --px-duration-slow: 0ms;
+  }
+}

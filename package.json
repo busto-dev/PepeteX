@@ -1,0 +1,48 @@
+{
+  "name": "pepetex",
+  "private": true,
+  "packageManager": "yarn@4.6.0",
+  "engines": {
+    "node": ">=24.15.0 <25"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "yarn workspaces foreach -A run build",
+    "db:migrate": "yarn workspace @pepetex/db db:migrate",
+    "db:migrate:deploy": "yarn workspace @pepetex/db db:migrate:deploy",
+    "db:seed": "yarn workspace @pepetex/db db:seed",
+    "dev": "turbo dev",
+    "dev:web": "yarn workspace @pepetex/web dev",
+    "dev:worker": "yarn workspace @pepetex/worker dev",
+    "lint": "eslint .",
+    "playwright:install": "yarn dlx playwright@1.59.1 install chromium",
+    "test": "yarn workspaces foreach -A run test",
+    "test:api": "yarn workspaces foreach -A run test:api",
+    "test:e2e": "yarn workspaces foreach -A run test:e2e",
+    "test:export": "yarn workspaces foreach -A run test:export",
+    "test:html-contract": "yarn workspace @pepetex/html-contract test",
+    "test:unit": "yarn workspaces foreach -A run test:unit",
+    "typecheck": "yarn workspaces foreach -A run typecheck"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.25.1",
+    "@types/node": "^24.12.2",
+    "@vue/language-core": "2.2.12",
+    "eslint": "^9.25.1",
+    "prettier": "^3.5.3",
+    "tsx": "^4.19.3",
+    "turbo": "^2.5.0",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.31.0",
+    "vitest": "^3.1.2"
+  },
+  "dependencies": {
+    "echarts": "^6.0.0",
+    "mermaid": "^11.14.0",
+    "pptx-automizer": "^0.8.1",
+    "svgdom": "^0.1.23"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "name": "@pepetex/ai",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "lint": "eslint .",
+    "test": "vitest run --passWithNoTests",
+    "test:api": "vitest run --passWithNoTests",
+    "test:e2e": "vitest run --passWithNoTests",
+    "test:export": "vitest run --passWithNoTests",
+    "test:unit": "vitest run --passWithNoTests",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@mastra/core": "1.36.0",
+    "@mastra/memory": "1.19.0",
+    "@mastra/pg": "1.11.1",
+    "@pepetex/design-systems": "workspace:*",
+    "@pepetex/html-contract": "workspace:*",
+    "@pepetex/prompts": "workspace:*",
+    "@pepetex/providers": "workspace:*",
+    "zod": "3.25.76"
+  }
+}

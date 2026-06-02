@@ -1,0 +1,965 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum GlobalRole {
+  USER
+  GLOBAL_ADMIN
+}
+
+enum WorkspaceType {
+  PERSONAL
+  SHARED
+}
+
+enum WorkspaceRole {
+  OWNER
+  ADMIN
+  EDITOR
+  COMMENTER
+  VIEWER
+}
+
+enum DeckRevisionSource {
+  INITIAL
+  MANUAL_TEXT_EDIT
+  SLIDE_DUPLICATED
+  SLIDE_REORDERED
+  SLIDE_DELETED
+  REVISION_RESTORED
+  AI_FULL_DECK_GENERATED
+  AI_SINGLE_SLIDE_INSERTED
+  AI_SLIDE_REGENERATED
+  AI_COMMENTS_APPLIED
+  AI_TWEAKS_APPLIED
+  AI_STUDIO_COMMAND
+}
+
+enum GenerationRunKind {
+  AGENT_COMMAND
+  FULL_DECK
+  SINGLE_SLIDE
+  REGENERATE_SLIDE
+  APPLY_COMMENTS
+  APPLY_TWEAKS
+  GENERATE_IMAGE
+  REGENERATE_IMAGE
+}
+
+enum GenerationRunStatus {
+  PENDING
+  RUNNING
+  WAITING_ASK
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum GenerationMessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+  VERIFIER
+}
+
+enum GenerationToolCallStatus {
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum GenerationCheckpointStatus {
+  DRAFT
+  VALIDATED
+  VALIDATION_FAILED
+  COMMITTED
+}
+
+enum DesignSystemGenerationRunKind {
+  DS_AGENT_COMMAND
+  DS_FULL_GENERATE
+}
+
+enum ImageGenerationStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+enum CommentStatus {
+  OPEN
+  SUBMITTED
+  APPLIED
+  RESOLVED
+  REJECTED
+}
+
+enum TweakScope {
+  DECK
+  SLIDE
+  ELEMENT
+}
+
+enum TweakBatchStatus {
+  PENDING
+  SUBMITTED
+  APPLIED
+}
+
+enum ProviderKind {
+  GEMINI
+  OPENAI_COMPATIBLE
+  CLIPROXYAPI
+}
+
+enum ImageProviderKind {
+  IMAGEN
+  GEMINI_IMAGE
+  GPT_IMAGE_2
+  OPENAI_COMPATIBLE
+}
+
+enum ProviderCredentialScope {
+  USER
+  SYSTEM
+}
+
+enum CustomPromptScope {
+  PERSONAL
+  WORKSPACE
+  GLOBAL
+}
+
+enum DesignSystemScope {
+  PERSONAL
+  WORKSPACE
+  GLOBAL
+}
+
+enum FilePurpose {
+  REFERENCE
+  ASSET
+}
+
+enum AssetRole {
+  LOGO
+  IMAGE
+  FONT
+  OTHER
+}
+
+enum ExportJobStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum ExportFormat {
+  PPTX
+  PDF
+}
+
+model User {
+  id                  String               @id @default(cuid())
+  email               String               @unique
+  passwordHash        String
+  globalRole          GlobalRole           @default(USER)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  profile             UserProfile?
+  memberships         WorkspaceMember[]
+  sessions            Session[]
+  passwordResetTokens PasswordResetToken[]
+  auditLogs           AuditLog[]
+  providerCredentials ProviderCredential[]
+  decks               Deck[]
+  deckRevisions       DeckRevision[]
+  referenceFiles      ReferenceFile[]
+  customPrompts       CustomPrompt[]        @relation("CustomPromptOwner")
+  comments            Comment[]             @relation("CommentAuthor")
+  designSystems              DesignSystem[]              @relation("DesignSystemOwner")
+  designSystemVersions       DesignSystemVersion[]       @relation("DesignSystemVersionAuthor")
+  designSystemReferenceFiles DesignSystemReferenceFile[] @relation("DesignSystemReferenceFileUploader")
+  exportJobTokens            ExportJobToken[]             @relation("ExportJobTokenActor")
+  exportedFiles              ExportedFile[]               @relation("ExportedFileActor")
+  generationRuns             GenerationRun[]
+  designSystemGenerationRuns DesignSystemGenerationRun[] @relation("DesignSystemGenerationRunAuthor")
+  generatedImages            GeneratedImage[]
+  notifications              Notification[]
+}
+
+model UserProfile {
+  id                 String   @id @default(cuid())
+  userId             String   @unique
+  name               String
+  avatarUrl          String?
+  uiLanguage         String   @default("en")
+  themePreference    String   @default("system")
+  defaultWorkspaceId String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Workspace {
+  id               String                    @id @default(cuid())
+  name             String
+  type             WorkspaceType
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
+  members          WorkspaceMember[]
+  decks            Deck[]
+  providerPolicies WorkspaceProviderPolicy[]
+  customPrompts    CustomPrompt[]
+  designSystems    DesignSystem[]
+  imageGenerationSettings WorkspaceImageGenerationSettings?
+}
+
+model WorkspaceMember {
+  id          String        @id @default(cuid())
+  workspaceId String
+  userId      String
+  role        WorkspaceRole
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+}
+
+model Session {
+  id         String   @id @default(cuid())
+  userId     String
+  tokenHash  String   @unique
+  expiresAt  DateTime
+  lastSeenAt DateTime @default(now())
+  revokedAt  DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model PasswordResetToken {
+  id         String   @id @default(cuid())
+  userId     String
+  tokenHash  String   @unique
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, consumedAt])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorUserId String?
+  action      String
+  targetType  String
+  targetId    String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  actorUser   User?    @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([actorUserId, createdAt])
+  @@index([action, createdAt])
+}
+
+model ProviderDefinition {
+  id                   String               @id @default(cuid())
+  name                 String               @unique
+  kind                 ProviderKind
+  enabled              Boolean              @default(true)
+  allowUserCredentials Boolean              @default(false)
+  baseUrl              String?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  credentials          ProviderCredential[]
+  modelCaches          ProviderModelCache[]
+  workspacePolicies    WorkspaceProviderPolicy[]
+  bridgedReferenceFiles ReferenceFile[]      @relation("ProviderDefinitionToReferenceFile")
+
+  @@index([kind, enabled])
+}
+
+model ProviderCredential {
+  id                   String                  @id @default(cuid())
+  providerDefinitionId String
+  scope                ProviderCredentialScope @default(USER)
+  ownerUserId          String?
+  label                String
+  encryptedPayload     String
+  apiKeyPreview        String
+  customHeadersHash    String?
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
+  providerDefinition   ProviderDefinition      @relation(fields: [providerDefinitionId], references: [id], onDelete: Cascade)
+  ownerUser            User?                   @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+
+  @@index([providerDefinitionId, scope])
+  @@index([ownerUserId, createdAt])
+}
+
+model ProviderModelCache {
+  id                   String             @id @default(cuid())
+  providerDefinitionId String
+  cacheKey             String
+  modelsJson           Json
+  fetchedAt            DateTime           @default(now())
+  expiresAt            DateTime
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  providerDefinition   ProviderDefinition @relation(fields: [providerDefinitionId], references: [id], onDelete: Cascade)
+
+  @@unique([providerDefinitionId, cacheKey])
+  @@index([providerDefinitionId, expiresAt])
+}
+
+model WorkspaceProviderPolicy {
+  id                   String             @id @default(cuid())
+  workspaceId          String
+  providerDefinitionId String
+  allowedModelIdsJson  Json?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  workspace            Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  providerDefinition   ProviderDefinition @relation(fields: [providerDefinitionId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, providerDefinitionId])
+  @@index([workspaceId, createdAt])
+}
+
+model GlobalImageGenerationSettings {
+  id                  String            @id
+  isEnabled           Boolean           @default(false)
+  defaultProviderKind ImageProviderKind?
+  defaultModel        String?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+}
+
+model WorkspaceImageGenerationSettings {
+  id                    String            @id @default(cuid())
+  workspaceId           String            @unique
+  isEnabled             Boolean?
+  preferredProviderKind ImageProviderKind?
+  preferredModel        String?
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+  workspace             Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+}
+
+model Deck {
+  id              String          @id @default(cuid())
+  workspaceId     String
+  createdByUserId String
+  title           String
+  contentJson     Json?
+  currentRevisionNumber Int       @default(0)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  workspace       Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdByUser   User            @relation(fields: [createdByUserId], references: [id], onDelete: Cascade)
+  referenceFiles  ReferenceFile[]
+  revisions       DeckRevision[]
+  comments        Comment[]
+  tweakBatches    TweakBatch[]
+  exportedFiles   ExportedFile[]
+  exportJobTokens ExportJobToken[]
+  generationRuns  GenerationRun[]
+  generatedImages GeneratedImage[]
+  lastUsedTextProviderId String?
+  lastUsedTextModelId    String?
+
+  @@index([workspaceId, createdAt])
+  @@index([createdByUserId, createdAt])
+}
+
+model DeckRevision {
+  id                     String             @id @default(cuid())
+  deckId                 String
+  revisionNumber         Int
+  label                  String
+  source                 DeckRevisionSource
+  summary                String?
+  deckJson               Json
+  thumbnailGcsBucket     String?
+  thumbnailGcsPath       String?
+  createdByUserId        String
+  restoredFromRevisionId String?
+  createdAt              DateTime           @default(now())
+  deck                   Deck               @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  createdByUser          User               @relation(fields: [createdByUserId], references: [id], onDelete: Cascade)
+  restoredFromRevision   DeckRevision?      @relation("DeckRevisionRestoreLink", fields: [restoredFromRevisionId], references: [id], onDelete: SetNull)
+  restoreEvents          DeckRevision[]     @relation("DeckRevisionRestoreLink")
+
+  @@unique([deckId, revisionNumber])
+  @@index([deckId, createdAt])
+  @@index([createdByUserId, createdAt])
+  @@index([restoredFromRevisionId])
+}
+
+model ReferenceFile {
+  id                 String             @id @default(cuid())
+  deckId             String
+  uploadedByUserId   String
+  purpose            FilePurpose        @default(REFERENCE)
+  assetRole          AssetRole?
+  originalFilename   String
+  mimeType           String
+  extension          String
+  sizeBytes          Int
+  pageCount          Int?
+  imageWidth         Int?
+  imageHeight        Int?
+  storageBucket      String
+  storageObjectPath  String
+  providerFileId     String?
+  providerDefinitionId String?
+  expiresAt          DateTime
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  deck               Deck               @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  uploadedByUser     User               @relation(fields: [uploadedByUserId], references: [id], onDelete: Cascade)
+  assetUsages        AssetUsage[]       @relation("AssetUsageToReferenceFile")
+  bridgedProvider    ProviderDefinition? @relation("ProviderDefinitionToReferenceFile", fields: [providerDefinitionId], references: [id], onDelete: SetNull)
+
+  @@index([deckId, createdAt])
+  @@index([deckId, purpose])
+  @@index([uploadedByUserId, createdAt])
+  @@index([providerDefinitionId])
+  @@index([expiresAt])
+}
+
+model AssetUsage {
+  id              String        @id @default(cuid())
+  referenceFileId String
+  context         String
+  contextId       String?
+  createdAt       DateTime      @default(now())
+  referenceFile   ReferenceFile @relation("AssetUsageToReferenceFile", fields: [referenceFileId], references: [id], onDelete: Cascade)
+
+  @@index([referenceFileId, createdAt])
+  @@index([context, contextId])
+}
+
+model CustomPrompt {
+  id          String               @id @default(cuid())
+  scope       CustomPromptScope
+  ownerUserId String?
+  workspaceId String?
+  title       String
+  description String?
+  category    String?
+  tagsJson    Json?
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  ownerUser   User?                @relation("CustomPromptOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  workspace   Workspace?           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  variants    CustomPromptVariant[]
+  promptExamples PromptExample[]
+
+  @@index([scope, createdAt])
+  @@index([ownerUserId, createdAt])
+  @@index([workspaceId, createdAt])
+}
+
+model CustomPromptVariant {
+  id             String       @id @default(cuid())
+  customPromptId String
+  languageCode   String
+  instruction    String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  customPrompt   CustomPrompt @relation(fields: [customPromptId], references: [id], onDelete: Cascade)
+
+  @@unique([customPromptId, languageCode])
+  @@index([customPromptId, createdAt])
+}
+
+model DesignSystem {
+  id                   String                @id @default(cuid())
+  scope                DesignSystemScope
+  ownerUserId          String?
+  workspaceId          String?
+  name                 String
+  description          String?
+  isEnabled            Boolean               @default(true)
+  currentVersionNumber Int                   @default(1)
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  ownerUser            User?                 @relation("DesignSystemOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  workspace            Workspace?            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  versions             DesignSystemVersion[]
+  referenceFiles       DesignSystemReferenceFile[]
+  promptExamples       PromptExample[]
+  generationRuns       DesignSystemGenerationRun[]
+  generatedImages      GeneratedImage[]
+
+  @@index([scope, createdAt])
+  @@index([ownerUserId, createdAt])
+  @@index([workspaceId, createdAt])
+}
+
+model DesignSystemVersion {
+  id               String       @id @default(cuid())
+  designSystemId   String
+  versionNumber    Int
+  label            String
+  summary          String?
+  // V2 canonical bucketed design system document (buckets -> sub-categories -> items).
+  documentJson     Json
+  createdByUserId  String
+  createdAt        DateTime     @default(now())
+  designSystem     DesignSystem @relation(fields: [designSystemId], references: [id], onDelete: Cascade)
+  createdByUser    User         @relation("DesignSystemVersionAuthor", fields: [createdByUserId], references: [id], onDelete: Cascade)
+
+  @@unique([designSystemId, versionNumber])
+  @@index([designSystemId, createdAt])
+  @@index([createdByUserId, createdAt])
+}
+
+model DesignSystemReferenceFile {
+  id               String       @id @default(cuid())
+  designSystemId   String
+  uploadedByUserId String
+  purpose          FilePurpose  @default(REFERENCE)
+  assetRole        AssetRole?
+  role             String
+  originalFilename String
+  mimeType         String
+  extension        String
+  sizeBytes        Int
+  pageCount        Int?
+  imageWidth       Int?
+  imageHeight      Int?
+  storageBucket    String
+  storageObjectPath String
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  designSystem     DesignSystem @relation(fields: [designSystemId], references: [id], onDelete: Cascade)
+  uploadedByUser   User         @relation("DesignSystemReferenceFileUploader", fields: [uploadedByUserId], references: [id], onDelete: Cascade)
+
+  @@index([designSystemId, createdAt])
+  @@index([designSystemId, purpose])
+  @@index([uploadedByUserId, createdAt])
+}
+
+// Parallel to GenerationRun, but targets a design system. The agentic chat studio
+// for design systems reuses the same Mastra memory / SSE / suspend-resume patterns.
+model DesignSystemGenerationRun {
+  id                   String                        @id @default(cuid())
+  designSystemId       String
+  workspaceId          String?
+  createdByUserId      String
+  kind                 DesignSystemGenerationRunKind
+  status               GenerationRunStatus           @default(PENDING)
+  // Text provider selection
+  textProviderId       String?
+  textModelId          String?
+  // Image generation settings (asset image-gen)
+  imageEnabled         Boolean                       @default(false)
+  imageProviderId      String?
+  imageModelId         String?
+  languageCode         String                        @default("en")
+  manualInstruction    String?
+  // Scoped feedback context: { bucketId, subCategoryId?, itemId? }
+  feedbackContextJson  Json?
+  // ASK mode suspend state
+  askQuestion          String?
+  askOptionsJson       Json?
+  askAllowManualAnswer Boolean                       @default(true)
+  pendingAskAnswer     String?
+  // Mastra agent execution metadata
+  mastraResourceId     String?
+  mastraThreadId       String?
+  mastraRunId          String?
+  agentTraceId         String?
+  agentMode            String?
+  agentStepCount       Int                           @default(0)
+  inputTokensUsed      Int                           @default(0)
+  outputTokensUsed     Int                           @default(0)
+  // Result
+  resultVersionId      String?
+  aiSummary            String?
+  errorMessage         String?
+  startedAt            DateTime?
+  completedAt          DateTime?
+  createdAt            DateTime                      @default(now())
+  updatedAt            DateTime                      @updatedAt
+  designSystem         DesignSystem                  @relation(fields: [designSystemId], references: [id], onDelete: Cascade)
+  createdByUser        User                          @relation("DesignSystemGenerationRunAuthor", fields: [createdByUserId], references: [id], onDelete: Cascade)
+  messages             DesignSystemGenerationMessage[]
+  toolCalls            DesignSystemGenerationToolCall[]
+  checkpoints          DesignSystemGenerationCheckpoint[]
+  generatedImages      GeneratedImage[]
+
+  @@index([designSystemId, createdAt])
+  @@index([createdByUserId, createdAt])
+  @@index([mastraResourceId])
+  @@index([mastraThreadId])
+  @@index([mastraRunId])
+  @@index([status, createdAt])
+}
+
+model DesignSystemGenerationMessage {
+  id        String                    @id @default(cuid())
+  runId     String
+  role      GenerationMessageRole
+  content   String
+  metadata  Json?
+  createdAt DateTime                  @default(now())
+  run       DesignSystemGenerationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId, createdAt])
+}
+
+model DesignSystemGenerationToolCall {
+  id               String                    @id @default(cuid())
+  runId            String
+  mastraToolCallId String?
+  name             String
+  label            String
+  status           GenerationToolCallStatus  @default(RUNNING)
+  inputJson        Json?
+  resultJson       Json?
+  errorMessage     String?
+  startedAt        DateTime                  @default(now())
+  completedAt      DateTime?
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
+  run              DesignSystemGenerationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId, createdAt])
+  @@index([runId, mastraToolCallId])
+  @@index([runId, status, createdAt])
+}
+
+model DesignSystemGenerationCheckpoint {
+  id             String                     @id @default(cuid())
+  runId          String
+  status         GenerationCheckpointStatus @default(DRAFT)
+  summary        String?
+  documentJson   Json
+  validationJson Json?
+  versionId      String?
+  createdAt      DateTime                   @default(now())
+  run            DesignSystemGenerationRun  @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId, createdAt])
+  @@index([runId, status, createdAt])
+}
+
+model Comment {
+  id         String        @id @default(cuid())
+  deckId     String
+  slideId    String?
+  elementIds String[]
+  text       String
+  status     CommentStatus @default(OPEN)
+  authorId   String
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+  deck       Deck          @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  author     User          @relation("CommentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([deckId, status, createdAt])
+  @@index([authorId, createdAt])
+}
+
+model TweakBatch {
+  id          String          @id @default(cuid())
+  deckId      String
+  status      TweakBatchStatus @default(PENDING)
+  submittedAt DateTime?
+  appliedAt   DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  items       TweakItem[]
+  deck        Deck            @relation(fields: [deckId], references: [id], onDelete: Cascade)
+
+  @@index([deckId, status, createdAt])
+}
+
+model TweakItem {
+  id        String     @id @default(cuid())
+  batchId   String
+  scope     TweakScope
+  slideId   String?
+  elementId String?
+  category  String
+  value     Json
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  batch     TweakBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@index([batchId, category])
+}
+
+model ExportJobToken {
+  id            String    @id @default(cuid())
+  token         String    @unique
+  deckId        String
+  revisionId    String
+  actorUserId   String
+  expiresAt     DateTime
+  usedAt        DateTime?
+  createdAt     DateTime  @default(now())
+  deck          Deck      @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  actor         User      @relation("ExportJobTokenActor", fields: [actorUserId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([deckId, createdAt])
+  @@index([expiresAt])
+}
+
+model ExportedFile {
+  id               String          @id @default(cuid())
+  deckId           String
+  revisionId       String
+  gcsBucket        String
+  gcsPath          String
+  fileName         String
+  sizeBytes        Int
+  format           ExportFormat    @default(PPTX)
+  status           ExportJobStatus @default(COMPLETED)
+  isFallback       Boolean         @default(false)
+  fallbackReason   String?
+  pepetexVersion   String?
+  exportedAt       DateTime        @default(now())
+  exportedByUserId String
+  jobId            String?
+  deck             Deck            @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  exportedByUser   User            @relation("ExportedFileActor", fields: [exportedByUserId], references: [id], onDelete: Cascade)
+
+  @@index([deckId, exportedAt])
+  @@index([exportedByUserId, exportedAt])
+}
+
+model GenerationRun {
+  id                   String              @id @default(cuid())
+  deckId               String
+  workspaceId          String
+  createdByUserId      String
+  kind                 GenerationRunKind
+  status               GenerationRunStatus @default(PENDING)
+  // Text provider selection
+  textProviderId       String?
+  textModelId          String?
+  // Image generation settings
+  imageEnabled         Boolean             @default(false)
+  imageProviderId      String?
+  imageModelId         String?
+  // Prompt inputs
+  customPromptId       String?
+  designSystemId       String?
+  languageCode         String              @default("en")
+  manualInstruction    String?
+  // Slide-specific ops (single-slide / regenerate)
+  targetSlideId        String?
+  targetElementId      String?
+  slideInstruction     String?
+  commandContextJson   Json?
+  // ASK mode suspend state
+  askQuestion          String?
+  askOptionsJson       Json?
+  askAllowManualAnswer Boolean             @default(true)
+  pendingAskAnswer     String?
+  // Mastra agent execution metadata
+  mastraResourceId     String?
+  mastraThreadId       String?
+  mastraRunId          String?
+  agentTraceId         String?
+  agentMode            String?
+  agentStepCount       Int                 @default(0)
+  inputTokensUsed      Int                 @default(0)
+  outputTokensUsed     Int                 @default(0)
+  // Result
+  resultRevisionId     String?
+  aiSummary            String?
+  errorMessage         String?
+  startedAt            DateTime?
+  completedAt          DateTime?
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+  deck                 Deck                @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  createdByUser        User                @relation(fields: [createdByUserId], references: [id], onDelete: Cascade)
+  messages             GenerationMessage[]
+  toolCalls            GenerationToolCall[]
+  checkpoints          GenerationCheckpoint[]
+  generatedImages      GeneratedImage[]
+
+  @@index([deckId, createdAt])
+  @@index([createdByUserId, createdAt])
+  @@index([mastraResourceId])
+  @@index([mastraThreadId])
+  @@index([mastraRunId])
+  @@index([status, createdAt])
+  @@index([workspaceId, createdAt])
+}
+
+model GenerationMessage {
+  id          String                @id @default(cuid())
+  runId       String
+  role        GenerationMessageRole
+  content     String
+  metadata    Json?
+  createdAt   DateTime              @default(now())
+  run         GenerationRun         @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId, createdAt])
+}
+
+model GenerationToolCall {
+  id           String                   @id @default(cuid())
+  runId        String
+  mastraToolCallId String?
+  name         String
+  label        String
+  status       GenerationToolCallStatus @default(RUNNING)
+  inputJson    Json?
+  resultJson   Json?
+  errorMessage String?
+  startedAt    DateTime                 @default(now())
+  completedAt  DateTime?
+  createdAt    DateTime                 @default(now())
+  updatedAt    DateTime                 @updatedAt
+  run          GenerationRun            @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId, createdAt])
+  @@index([runId, mastraToolCallId])
+  @@index([runId, status, createdAt])
+}
+
+model GenerationCheckpoint {
+  id             String                     @id @default(cuid())
+  runId          String
+  status         GenerationCheckpointStatus @default(DRAFT)
+  summary        String?
+  deckJson       Json
+  validationJson Json?
+  revisionId     String?
+  createdAt      DateTime                   @default(now())
+  run            GenerationRun              @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId, createdAt])
+  @@index([runId, status, createdAt])
+}
+
+model GeneratedImage {
+  id              String               @id @default(cuid())
+  // Exactly one owner is set: a deck (deck image gen) OR a design system (asset gen).
+  deckId          String?
+  generationRunId String?
+  designSystemId             String?
+  designSystemGenerationRunId String?
+  slideId         String?
+  elementId       String?
+  prompt          String
+  revisedPrompt   String?
+  model           String
+  providerKind    String
+  gcsBucket       String?
+  gcsPath         String?
+  mimeType        String               @default("image/png")
+  width           Int?
+  height          Int?
+  status          ImageGenerationStatus @default(PENDING)
+  errorMessage    String?
+  friendlyError   String?
+  createdByUserId String
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  deck            Deck?                @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  generationRun   GenerationRun?       @relation(fields: [generationRunId], references: [id], onDelete: SetNull)
+  designSystem               DesignSystem?              @relation(fields: [designSystemId], references: [id], onDelete: Cascade)
+  designSystemGenerationRun  DesignSystemGenerationRun? @relation(fields: [designSystemGenerationRunId], references: [id], onDelete: SetNull)
+  createdByUser   User                 @relation(fields: [createdByUserId], references: [id], onDelete: Cascade)
+
+  @@index([deckId, createdAt])
+  @@index([generationRunId])
+  @@index([designSystemId, createdAt])
+  @@index([designSystemGenerationRunId])
+  @@index([createdByUserId, createdAt])
+}
+
+model PromptExample {
+  id                 String    @id @default(cuid())
+  title              String
+  category           String
+  promptEn           String
+  promptId           String
+  isEnabled          Boolean   @default(true)
+  thumbnailGcsBucket String?
+  thumbnailGcsPath   String?
+  sortOrder          Int       @default(0)
+  // Pre-selected bundle (all optional)
+  designSystemId     String?
+  customPromptId     String?
+  textProviderKind   String?
+  textModelId        String?
+  imageEnabled       Boolean   @default(false)
+  imageProviderKind  String?
+  imageModelId       String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  designSystem       DesignSystem? @relation(fields: [designSystemId], references: [id], onDelete: SetNull)
+  customPrompt       CustomPrompt? @relation(fields: [customPromptId], references: [id], onDelete: SetNull)
+  referenceFiles     PromptExampleReferenceFile[]
+
+  @@index([category, isEnabled, sortOrder])
+  @@index([isEnabled, sortOrder])
+  @@index([designSystemId])
+  @@index([customPromptId])
+}
+
+model PromptExampleReferenceFile {
+  id                String        @id @default(cuid())
+  promptExampleId   String
+  purpose           FilePurpose   @default(REFERENCE)
+  assetRole         AssetRole?
+  originalFilename  String
+  mimeType          String
+  extension         String
+  sizeBytes         Int
+  pageCount         Int?
+  imageWidth        Int?
+  imageHeight       Int?
+  storageBucket     String
+  storageObjectPath String
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  promptExample     PromptExample @relation(fields: [promptExampleId], references: [id], onDelete: Cascade)
+
+  @@index([promptExampleId, purpose])
+  @@index([promptExampleId, createdAt])
+}
+
+model Notification {
+  id         String    @id @default(cuid())
+  userId     String
+  kind       String
+  title      String
+  body       String?
+  actionUrl  String?
+  metadata   Json?
+  readAt     DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt, createdAt])
+  @@index([userId, createdAt])
+}
