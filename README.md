@@ -257,6 +257,18 @@ Test categories:
 
 See [.env.example](.env.example) for all variables with defaults.
 
+### Generating secrets
+
+```bash
+# PROVIDER_CREDENTIAL_ENCRYPTION_KEY — 32-byte base64 key
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+
+# FIRST_ADMIN_PASSWORD_HASH — scrypt hash (format: scrypt$<salt>$<key>)
+corepack yarn tsx -e "import { hashPassword } from '@pepetex/auth'; hashPassword('your-secure-password').then(console.log)"
+```
+
+> Keep `FIRST_ADMIN_PASSWORD_HASH` single-quoted in `.env` — scrypt hashes contain `$` characters. Full details in [RUNNING.md](RUNNING.md).
+
 ---
 
 ## Security
