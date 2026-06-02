@@ -96,7 +96,7 @@ Use it when generating deck
 
 - [Node.js 24.x](https://nodejs.org)
 - [Docker & Docker Compose v2](https://docs.docker.com/get-docker/)
-- A Google Cloud Storage bucket (or local emulator)
+- **Object storage** — none required to get started. PepeteX ships with a built-in local filesystem driver, so you can run entirely on disk without a Google Cloud Storage bucket. GCS is only needed for cloud/production deployments (see [Object Storage](#object-storage) below).
 
 ```bash
 # 1. Clone
@@ -111,7 +111,10 @@ docker compose up -d postgres redis
 
 # 4. Configure environment
 cp .env.example .env
-# Edit .env — set PROVIDER_CREDENTIAL_ENCRYPTION_KEY and FIRST_ADMIN_* fields
+# Edit .env — set PROVIDER_CREDENTIAL_ENCRYPTION_KEY and FIRST_ADMIN_* fields.
+# For local dev without GCS, also add:
+#   OBJECT_STORAGE_DRIVER=local
+#   LOCAL_OBJECT_STORAGE_ROOT=./.pepetex-storage
 
 # 5. Run migrations & seed
 corepack yarn workspace @pepetex/db build
@@ -125,6 +128,37 @@ corepack yarn dev
 App is at **http://localhost:3000**. Log in with the email and password you set in `.env`.
 
 > **Full setup guide →** [RUNNING.md](RUNNING.md)
+
+---
+
+## Object Storage
+
+PepeteX stores all binary assets (uploaded reference files, generated images, exported PPTX/PDF) through a pluggable object-storage adapter. You can run it two ways:
+
+### Local filesystem (default for self-hosting — no GCS needed)
+
+The built-in `local` driver writes every object to a directory on disk. No Google Cloud account, bucket, or emulator required — ideal for local development and air-gapped/self-hosted installs. Set these in `.env`:
+
+```env
+OBJECT_STORAGE_DRIVER=local
+LOCAL_OBJECT_STORAGE_ROOT=./.pepetex-storage   # any writable directory
+```
+
+The Docker Compose stack ([docker-compose.yml](docker-compose.yml)) already uses this driver by default, persisting objects to a named `object-storage` volume mounted at `/data/pepetex-storage` — so `docker compose up` works out of the box with zero cloud setup.
+
+> On Windows / non-Docker local dev, point `LOCAL_OBJECT_STORAGE_ROOT` at a path that exists and is writable (e.g. `./.pepetex-storage`). The Docker default `/data/pepetex-storage` only applies inside the container.
+
+### Google Cloud Storage (production / cloud)
+
+For cloud deployments, leave `OBJECT_STORAGE_DRIVER` unset (it defaults to `gcs`) and provide a bucket plus credentials:
+
+```env
+GCS_BUCKET=your-prod-bucket
+# Auth via Application Default Credentials — VM/Cloud Run service account,
+# or GOOGLE_APPLICATION_CREDENTIALS pointing at a service-account JSON file.
+```
+
+See [RUNNING.md](RUNNING.md) for GCS credential setup and the VM Compose `docker-compose.gcp-auth.yml` overlay.
 
 ---
 
