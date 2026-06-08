@@ -19,61 +19,46 @@ describe('PepeteX generation agent instructions', () => {
     expect(contract).toContain('write_slide');
     expect(contract).toContain('patch_slide');
     expect(contract).toContain('finish_generation');
+    expect(contract).toContain('write_todos');
+    expect(contract).toContain('compact_context');
   });
 
-  it('keeps mutation and suspend tools on the supervisor, not advisory specialists', async () => {
-    const {
-      supervisorAgent,
-      intentPlannerAgent,
-      deckAnalystAgent,
-      contentCandidateAgent,
-      patchAdvisorAgent
-    } = createPepeteXGenerationAgents();
+  it('exposes a single agent that owns every tool with no advisory subagents', async () => {
+    const result = createPepeteXGenerationAgents();
 
-    const supervisorTools = Object.keys(await supervisorAgent.listTools());
+    // Only the single supervisor agent is returned now — no advisory specialists.
+    expect(Object.keys(result)).toEqual(['supervisorAgent']);
+
+    const supervisorTools = Object.keys(await result.supervisorAgent.listTools());
     expect(supervisorTools).toEqual(expect.arrayContaining([
       'request_clarification',
       'request_approval',
+      'read_deck_state',
+      'read_design_system',
+      'list_reference_files',
+      'read_reference_file',
+      'list_assets',
+      'plan_deck',
+      'write_todos',
+      'compact_context',
       'write_slide',
       'patch_slide',
       'validate_slide',
       'validate_deck',
       'finish_generation'
     ]));
-
-    for (const specialist of [intentPlannerAgent, deckAnalystAgent, contentCandidateAgent, patchAdvisorAgent]) {
-      const toolNames = Object.keys(await specialist.listTools());
-      expect(toolNames).not.toContain('request_clarification');
-      expect(toolNames).not.toContain('request_approval');
-      expect(toolNames).not.toContain('write_slide');
-      expect(toolNames).not.toContain('patch_slide');
-      expect(toolNames).not.toContain('validate_slide');
-      expect(toolNames).not.toContain('validate_deck');
-      expect(toolNames).not.toContain('finish_generation');
-    }
-
-    const instructions = String(await supervisorAgent.getInstructions());
-    expect(instructions).not.toContain('You do not have write_slide');
-    expect(instructions).not.toContain('agent-composerAgent');
-    expect(instructions).not.toContain('agent-refinementAgent');
-    expect(instructions).toContain('sole mutation owner');
-    expect(instructions).toContain('agent-intentPlannerAgent');
-    expect(instructions).toContain('agent-deckAnalystAgent');
-    expect(instructions).toContain('agent-contentCandidateAgent');
-    expect(instructions).toContain('agent-patchAdvisorAgent');
   });
 
-  it('exposes only advisory helper subagents to the supervisor', () => {
+  it('has no delegated subagents and keeps single-owner instructions', async () => {
     const { supervisorAgent } = createPepeteXGenerationAgents();
     const subagentNames = Object.keys(supervisorAgent.__getStaticAgents() ?? {});
+    expect(subagentNames).toEqual([]);
 
-    expect(subagentNames).toEqual([
-      'intentPlannerAgent',
-      'deckAnalystAgent',
-      'contentCandidateAgent',
-      'patchAdvisorAgent'
-    ]);
-    expect(subagentNames).not.toContain('composerAgent');
-    expect(subagentNames).not.toContain('refinementAgent');
+    const instructions = String(await supervisorAgent.getInstructions());
+    expect(instructions).toContain('sole mutation owner');
+    expect(instructions).not.toContain('agent-intentPlannerAgent');
+    expect(instructions).not.toContain('agent-deckAnalystAgent');
+    expect(instructions).not.toContain('agent-contentCandidateAgent');
+    expect(instructions).not.toContain('agent-patchAdvisorAgent');
   });
 });

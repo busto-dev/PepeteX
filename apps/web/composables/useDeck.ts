@@ -35,7 +35,7 @@ export const useDeck = () => {
   async function loadDecks(workspaceId: string) {
     loadingDecks.value = true
     try {
-      const data = await $fetch<{ decks: DeckSummary[] }>(`/api/workspaces/${workspaceId}/decks`)
+      const data = await $fetch<{ decks: DeckSummary[] }>(`/api/workspaces/${workspaceId}/decks`, { headers: ssrCookieHeaders() })
       decks.value = data.decks
       if (!data.decks.find((d) => d.id === selectedDeckId.value)) {
         selectedDeckId.value = data.decks[0]?.id ?? null
@@ -58,7 +58,7 @@ export const useDeck = () => {
   async function loadDetail(deckId: string, options: ApplyDetailOptions = {}) {
     loadingDetail.value = true
     try {
-      const data = await $fetch<{ deck: DeckDetail }>(`/api/decks/${deckId}`)
+      const data = await $fetch<{ deck: DeckDetail }>(`/api/decks/${deckId}`, { headers: ssrCookieHeaders() })
       applyDetail(data.deck, options)
     } finally {
       loadingDetail.value = false

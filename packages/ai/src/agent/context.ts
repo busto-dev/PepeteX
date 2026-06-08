@@ -95,10 +95,29 @@ export interface PepeteXAgentFinishResult extends PepeteXAgentValidationResult {
   summary: string;
 }
 
+export type PepeteXTodoStatus = 'pending' | 'in_progress' | 'completed';
+
+export interface PepeteXTodoItem {
+  content: string;
+  activeForm: string;
+  status: PepeteXTodoStatus;
+}
+
 export interface PepeteXAgentToolRuntime {
   getDraftDeck(): GeneratedDeck | null;
   getCurrentDeck(): GeneratedDeck | null;
   savePlan(plan: unknown): Promise<{ status: 'ok'; plan: unknown }>;
+  writeTodos(input: { todos: PepeteXTodoItem[] }): Promise<{ status: 'ok'; todos: PepeteXTodoItem[] }>;
+  /** Records a context-compaction event (mirrored to the UI timeline). */
+  recordCompactionEvent(input: {
+    detail: string;
+    tokensBefore: number;
+    tokensAfter: number;
+  }): Promise<void>;
+  /** Model-triggered early compaction: sets a one-shot flag the compaction processor consumes. */
+  requestContextCompaction(): void;
+  /** Reads and clears the force-compaction flag. */
+  consumeForceCompactFlag(): boolean;
   writeSlide(input: {
     slide: GeneratedSlide;
     operation: 'insert' | 'replace';

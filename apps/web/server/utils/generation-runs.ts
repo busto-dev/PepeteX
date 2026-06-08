@@ -96,6 +96,9 @@ export interface GenerationRunSummary {
   agentStepCount: number;
   inputTokensUsed: number;
   outputTokensUsed: number;
+  // Agent planning + task tracking surfaced to the UI
+  plan: unknown;
+  todos: GenerationTodoItem[] | null;
   // ASK mode fields (only present when status === WAITING_ASK)
   askQuestion: string | null;
   askOptionsJson: unknown;
@@ -107,6 +110,29 @@ export interface GenerationRunSummary {
   messages: GenerationMessageSummary[];
   toolCalls: GenerationToolCallSummary[];
   latestCheckpoint: GenerationCheckpointSummary | null;
+}
+
+export interface GenerationTodoItem {
+  content: string;
+  activeForm: string;
+  status: 'pending' | 'in_progress' | 'completed';
+}
+
+function normalizeGenerationTodos(value: unknown): GenerationTodoItem[] | null {
+  if (!Array.isArray(value)) return null;
+  const statuses = ['pending', 'in_progress', 'completed'] as const;
+  const todos = value
+    .filter((item): item is Record<string, unknown> => !!item && typeof item === 'object')
+    .map((item) => {
+      const content = typeof item.content === 'string' ? item.content : '';
+      const activeForm = typeof item.activeForm === 'string' && item.activeForm ? item.activeForm : content;
+      const status = statuses.includes(item.status as (typeof statuses)[number])
+        ? (item.status as GenerationTodoItem['status'])
+        : 'pending';
+      return { content, activeForm, status };
+    })
+    .filter((todo) => todo.content.length > 0);
+  return todos.length > 0 ? todos : null;
 }
 
 export interface GenerationMessageSummary {
@@ -315,6 +341,8 @@ export function toGenerationRunSummary(run: {
   agentStepCount: number;
   inputTokensUsed: number;
   outputTokensUsed: number;
+  planJson?: unknown;
+  todosJson?: unknown;
   askQuestion: string | null;
   askOptionsJson: unknown;
   askAllowManualAnswer: boolean;
@@ -381,6 +409,8 @@ export function toGenerationRunSummary(run: {
     agentStepCount: run.agentStepCount,
     inputTokensUsed: run.inputTokensUsed,
     outputTokensUsed: run.outputTokensUsed,
+    plan: run.planJson ?? null,
+    todos: normalizeGenerationTodos(run.todosJson),
     askQuestion: run.status === 'WAITING_ASK' ? run.askQuestion : null,
     askOptionsJson: run.status === 'WAITING_ASK' ? run.askOptionsJson : null,
     askAllowManualAnswer: run.askAllowManualAnswer,

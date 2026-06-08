@@ -121,6 +121,8 @@ function getGenerationRunStreamSignature(run: GenerationRunSummary): string {
     targetSlideId: run.targetSlideId,
     targetElementId: run.targetElementId,
     commandContextJson: run.commandContextJson,
+    todos: run.todos,
+    plan: run.plan,
     messages: run.messages.map((message) => ({
       id: message.id,
       role: message.role,

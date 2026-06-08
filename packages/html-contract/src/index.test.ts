@@ -375,7 +375,7 @@ describe('@pepetex/html-contract', () => {
     ).toBeDefined();
   });
 
-  it('rejects backdrop-filter and mix-blend-mode as FORBIDDEN_CSS', () => {
+  it('warns on backdrop-filter and mix-blend-mode without blocking (dom-to-pptx drops them but it is not breakage)', () => {
     const result = validateSlide({
       slideId: 'slide-blend',
       html: `
@@ -396,15 +396,17 @@ describe('@pepetex/html-contract', () => {
       `
     });
 
-    expect(result.ok).toBe(false);
-    expect(result.errors.map((error) => error.code)).toEqual(
-      expect.arrayContaining(['FORBIDDEN_CSS'])
+    expect(result.ok).toBe(true);
+    expect(result.errors).toEqual([]);
+    expect(result.warnings.map((warning) => warning.path)).toEqual(
+      expect.arrayContaining(['css.backdrop-filter', 'css.mix-blend-mode'])
     );
-    expect(result.errors.find((error) => error.path === 'css.backdrop-filter')).toBeDefined();
-    expect(result.errors.find((error) => error.path === 'css.mix-blend-mode')).toBeDefined();
+    // The declarations are preserved so the live preview still renders them.
+    expect(result.normalizedCss).toContain('backdrop-filter');
+    expect(result.normalizedCss).toContain('mix-blend-mode');
   });
 
-  it('rejects clip-path / mask / filter as FORBIDDEN_CSS', () => {
+  it('warns on clip-path / mask / filter without blocking', () => {
     const result = validateSlide({
       slideId: 'slide-clip',
       html: `
@@ -425,9 +427,10 @@ describe('@pepetex/html-contract', () => {
       `
     });
 
-    expect(result.ok).toBe(false);
-    expect(result.errors.find((error) => error.path === 'css.clip-path')).toBeDefined();
-    expect(result.errors.find((error) => error.path === 'css.filter')).toBeDefined();
+    expect(result.ok).toBe(true);
+    expect(result.errors).toEqual([]);
+    expect(result.warnings.find((warning) => warning.path === 'css.clip-path')).toBeDefined();
+    expect(result.warnings.find((warning) => warning.path === 'css.filter')).toBeDefined();
   });
 
   it('rejects conic-gradient as FORBIDDEN_CSS', () => {
@@ -492,16 +495,16 @@ describe('@pepetex/html-contract', () => {
     expect(result.normalizedCss).not.toContain('animation');
   });
 
-  it('rejects non-rotate transforms (translate/scale/skew/matrix) as forbidden CSS', () => {
-    const result = validateSlide({
-      slideId: 'slide-bad-transform',
+  it('warns (does not block) on scale/skew/matrix transforms, and allows pure translate/rotate', () => {
+    const risky = validateSlide({
+      slideId: 'slide-risky-transform',
       html: `
         <section
           class="pepetex-slide"
-          data-pepetex-slide-id="slide-bad-transform"
+          data-pepetex-slide-id="slide-risky-transform"
           style="position: relative; width: 1920px; height: 1080px; overflow: hidden"
         >
-          <h1 data-pepetex-id="title" data-pepetex-type="headline">Bad transform</h1>
+          <h1 data-pepetex-id="title" data-pepetex-type="headline">Risky transform</h1>
           <div data-pepetex-id="card" data-pepetex-type="card">Card</div>
         </section>
       `,
@@ -512,14 +515,63 @@ describe('@pepetex/html-contract', () => {
       `
     });
 
-    expect(result.ok).toBe(false);
-    expect(result.severity).toBe('repair_required');
-    expect(result.errors.map((error) => error.code)).toEqual(
-      expect.arrayContaining(['FORBIDDEN_CSS'])
-    );
-    expect(
-      result.errors.find((error) => error.path === 'css.transform')
-    ).toBeDefined();
+    // scale is risky for export fidelity, but it is a non-blocking warning now.
+    expect(risky.ok).toBe(true);
+    expect(risky.errors).toEqual([]);
+    expect(risky.warnings.find((warning) => warning.path === 'css.transform')).toBeDefined();
+    expect(risky.normalizedCss).toContain('transform: translateY(-8px) scale(1.02)');
+
+    // Pure translate (a common centering idiom) is fidelity-safe — no warning at all.
+    const safe = validateSlide({
+      slideId: 'slide-safe-transform',
+      html: `
+        <section
+          class="pepetex-slide"
+          data-pepetex-slide-id="slide-safe-transform"
+          style="position: relative; width: 1920px; height: 1080px; overflow: hidden"
+        >
+          <h1 data-pepetex-id="title2" data-pepetex-type="headline">Safe transform</h1>
+          <div data-pepetex-id="card2" data-pepetex-type="card">Card</div>
+        </section>
+      `,
+      css: `
+        .pepetex-slide [data-pepetex-type="card"] {
+          transform: translate(-50%, -50%);
+        }
+      `
+    });
+
+    expect(safe.ok).toBe(true);
+    expect(safe.warnings.find((warning) => warning.path === 'css.transform')).toBeUndefined();
+  });
+
+  it('coerces an unknown data-pepetex-type to a safe type with a warning instead of failing', () => {
+    const result = validateSlide({
+      slideId: 'slide-unknown-type',
+      html: `
+        <section
+          class="pepetex-slide"
+          data-pepetex-slide-id="slide-unknown-type"
+          style="position: relative; width: 1920px; height: 1080px; overflow: hidden"
+        >
+          <h1 data-pepetex-id="title" data-pepetex-type="heading">Aliased title</h1>
+          <div data-pepetex-id="wrap" data-pepetex-type="container">
+            <p data-pepetex-id="copy" data-pepetex-type="subheading">Body copy</p>
+          </div>
+          <div data-pepetex-id="mystery" data-pepetex-type="sparkline-thing">x</div>
+        </section>
+      `,
+      css: ''
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.errors).toEqual([]);
+    // heading -> headline, container -> group, subheading -> body (aliases)
+    expect(result.elementIndex.find((entry) => entry.id === 'title')?.type).toBe('headline');
+    expect(result.elementIndex.find((entry) => entry.id === 'wrap')?.type).toBe('group');
+    expect(result.elementIndex.find((entry) => entry.id === 'copy')?.type).toBe('body');
+    // a genuinely unknown type is coerced (text leaf -> body) rather than rejected
+    expect(result.elementIndex.find((entry) => entry.id === 'mystery')?.type).toBe('body');
   });
 
   it('updates editable slide text by data-pepetex-id', () => {
@@ -739,7 +791,7 @@ describe('@pepetex/html-contract', () => {
     );
   });
 
-  it('reports duplicate ids, invalid types, and forbidden css', () => {
+  it('reports duplicate ids, missing ids, and forbidden css (unknown types are coerced, not failed)', () => {
     const result = validateSlide({
       slideId: 'slide-4',
       html: `
@@ -768,12 +820,14 @@ describe('@pepetex/html-contract', () => {
     expect(result.errors.map((error) => error.code)).toEqual(
       expect.arrayContaining([
         'DUPLICATE_ELEMENT_ID',
-        'SCHEMA_INVALID',
         'MISSING_ELEMENT_ID',
         'FORBIDDEN_CSS',
         'EXTERNAL_REQUEST_DETECTED'
       ])
     );
+    // The unknown data-pepetex-type="unknown" is coerced with a warning, not a SCHEMA_INVALID error.
+    expect(result.errors.find((error) => error.code === 'SCHEMA_INVALID')).toBeUndefined();
+    expect(result.warnings.find((warning) => warning.message.includes('not a known PepeteX type'))).toBeDefined();
   });
 
   it('requires at least one meaningful stable targetable element', () => {

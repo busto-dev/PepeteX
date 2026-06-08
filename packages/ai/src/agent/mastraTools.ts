@@ -1,5 +1,5 @@
 import { createTool } from '@mastra/core/tools';
-import { getPepeteXAgentRequestContext } from './context.js';
+import { getPepeteXAgentRequestContext, type PepeteXTodoItem } from './context.js';
 import type {
   DeckPatch,
   DeckPatchOperation,
@@ -901,8 +901,54 @@ export function createPepeteXMastraTools() {
       required: ['plan'],
       additionalProperties: true
     }),
-    execute: async (input, _context) => {
-      return { status: 'ok' as const, plan: input.plan };
+    execute: async (input, context) => {
+      const request = getPepeteXAgentRequestContext(context.requestContext);
+      return request.runtime.savePlan(input.plan);
+    }
+  });
+
+  const writeTodosTool = createTool({
+    id: 'write_todos',
+    description: 'Create or replace the task checklist shown to the user. Use ONLY for complex multi-step work (3+ distinct steps); skip it for a single trivial edit. Replace the whole list each call, keep exactly one item in_progress, and mark an item completed immediately when done before starting the next.',
+    inputSchema: passthroughObjectSchema<{ todos: PepeteXTodoItem[] }>({
+      type: 'object',
+      properties: {
+        todos: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              content: { type: 'string', description: 'Imperative task description, e.g. "Write the market-size slide".' },
+              activeForm: { type: 'string', description: 'Present-continuous form shown while in progress, e.g. "Writing the market-size slide".' },
+              status: { type: 'string', enum: ['pending', 'in_progress', 'completed'] }
+            },
+            required: ['content', 'activeForm', 'status'],
+            additionalProperties: true
+          }
+        }
+      },
+      required: ['todos'],
+      additionalProperties: true
+    }),
+    execute: async (input, context) => {
+      const request = getPepeteXAgentRequestContext(context.requestContext);
+      return request.runtime.writeTodos({ todos: Array.isArray(input.todos) ? input.todos : [] });
+    }
+  });
+
+  const compactContextTool = createTool({
+    id: 'compact_context',
+    description: 'Compact the conversation context early at a clean boundary (for example after finishing a slide) when the conversation is getting long. The system also compacts automatically as the token budget is approached.',
+    inputSchema: passthroughObjectSchema<{ reason?: string }>({
+      type: 'object',
+      properties: { reason: { type: 'string' } },
+      required: [],
+      additionalProperties: true
+    }),
+    execute: async (_input, context) => {
+      const request = getPepeteXAgentRequestContext(context.requestContext);
+      request.runtime.requestContextCompaction();
+      return { status: 'ok' as const, scheduled: true };
     }
   });
 
@@ -1090,6 +1136,8 @@ export function createPepeteXMastraTools() {
     request_approval: requestApprovalTool,
     read_deck_state: readDeckStateTool,
     plan_deck: planDeckTool,
+    write_todos: writeTodosTool,
+    compact_context: compactContextTool,
     read_design_system: readDesignSystemTool,
     list_reference_files: listReferenceFilesTool,
     read_reference_file: readReferenceFileTool,

@@ -160,9 +160,11 @@ async function runExportPptxJobInner(
       });
 
       // Read back any console warnings/errors that fired inside the page during
-      // the dom-to-pptx run. dom-to-pptx silently rasterizes regions that use
-      // unsupported CSS (transform / backdrop-filter / clip-path / mask /
-      // creative gradients) — those show up here so we can surface them in logs.
+      // the dom-to-pptx run. dom-to-pptx is a coordinate scraper (it measures each
+      // element's final rect), so transform/translate and rotate map cleanly; but
+      // some CSS still diverges — backdrop-filter / mix-blend-mode are dropped,
+      // clip-path / mask / non-linear gradients fall back, and a few decorative
+      // regions rasterize — those surface here so we can log them.
       try {
         const captured = await page.evaluate<Array<{ level: string; message: string }>>(() => {
           const global = globalThis as {

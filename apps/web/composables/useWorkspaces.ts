@@ -12,7 +12,7 @@ export const useWorkspaces = () => {
   async function load() {
     loading.value = true
     try {
-      const data = await $fetch<{ workspaces: WorkspaceSummary[] }>('/api/workspaces')
+      const data = await $fetch<{ workspaces: WorkspaceSummary[] }>('/api/workspaces', { headers: ssrCookieHeaders() })
       workspaces.value = data.workspaces
       // Preserve current selection if still valid, otherwise pick default
       const ids = data.workspaces.map((w) => w.id)

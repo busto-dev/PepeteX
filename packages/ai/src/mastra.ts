@@ -48,10 +48,6 @@ export function createPepeteXMastra(options?: {
       ? {
           agents: {
             pepeteXGenerationSupervisor: agents.supervisorAgent,
-            pepeteXIntentPlanner: agents.intentPlannerAgent,
-            pepeteXDeckAnalyst: agents.deckAnalystAgent,
-            pepeteXContentCandidateAdvisor: agents.contentCandidateAgent,
-            pepeteXPatchAdvisor: agents.patchAdvisorAgent,
             ...(designSystemAgent ? { pepeteXDesignSystemStudio: designSystemAgent } : {})
           }
         }

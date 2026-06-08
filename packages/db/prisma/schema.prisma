@@ -786,6 +786,9 @@ model GenerationRun {
   agentStepCount       Int                 @default(0)
   inputTokensUsed      Int                 @default(0)
   outputTokensUsed     Int                 @default(0)
+  // Agent planning + task tracking surfaced to the UI
+  planJson             Json?
+  todosJson            Json?
   // Result
   resultRevisionId     String?
   aiSummary            String?

@@ -47,6 +47,7 @@ export function inspectDeckQuality(
   const cardGridSlideIds: string[] = [];
   const weakPurposeSlideIds: string[] = [];
   const compositionCounts = new Map<string, string[]>();
+  let anchorlessSlideCount = 0;
 
   if (options.requireSubstantialDeck && deck.slides.length < minSlideCount) {
     issues.push({
@@ -132,12 +133,16 @@ export function inspectDeckQuality(
     }
 
     if (visualAnchorCount === 0) {
+      anchorlessSlideCount += 1;
+      // A single text-only slide (cover, section divider, a strong quote) is a
+      // legitimate design choice, so this is a non-blocking nudge per slide. The
+      // deck-level check below only errors when most slides lack any visual.
       issues.push({
         code: 'MISSING_VISUAL_ANCHOR',
-        severity: 'error',
+        severity: 'warning',
         slideId: slide.id,
-        message: `Slide "${slide.title}" has no meaningful visual anchor.`,
-        repairHint: 'Add an image, chart, diagram group, or strong card/visual module.'
+        message: `Slide "${slide.title}" has no visual anchor (image, chart, card, shape, or table).`,
+        repairHint: 'Consider adding an image, chart, diagram group, or strong card/visual module — unless this is an intentionally typographic slide (cover, section divider, quote).'
       });
     }
 
@@ -147,6 +152,18 @@ export function inspectDeckQuality(
 
     const signature = compositionSignature(slide, usesGrid);
     compositionCounts.set(signature, [...(compositionCounts.get(signature) ?? []), slide.id]);
+  }
+
+  if (options.requireSubstantialDeck && deck.slides.length >= 3) {
+    const anchorlessLimit = Math.max(2, Math.ceil(deck.slides.length * 0.4));
+    if (anchorlessSlideCount > anchorlessLimit) {
+      issues.push({
+        code: 'MISSING_VISUAL_ANCHOR',
+        severity: 'error',
+        message: `${anchorlessSlideCount} of ${deck.slides.length} slides have no visual anchor — the deck is mostly wall-to-wall text.`,
+        repairHint: 'Add meaningful visuals (images, charts, cards, diagrams) to the text-only slides. A few intentional typographic slides (cover, section dividers, quotes) are fine.'
+      });
+    }
   }
 
   if (cardGridSlideIds.length > 2) {

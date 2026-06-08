@@ -92,6 +92,46 @@ describe('inspectDeckQuality', () => {
     expect(report.issues.map((issue) => issue.code)).toContain('REPEATED_CARD_GRID_LAYOUT');
   });
 
+  it('treats a single text-only slide as a non-blocking warning, not an error', () => {
+    const report = inspectDeckQuality({
+      title: 'Cover',
+      language: 'en',
+      aspectRatio: '16:9',
+      canvas: { width: 1920, height: 1080 },
+      slides: [textOnlySlide('slide-cover', 'Bold Typographic Cover')]
+    });
+
+    const anchorIssue = report.issues.find((issue) => issue.code === 'MISSING_VISUAL_ANCHOR');
+    expect(anchorIssue?.severity).toBe('warning');
+    expect(report.ok).toBe(true);
+  });
+
+  it('errors at deck level when most slides of a full deck lack any visual anchor', () => {
+    const report = inspectDeckQuality(
+      {
+        title: 'All Text Deck',
+        language: 'en',
+        aspectRatio: '16:9',
+        canvas: { width: 1920, height: 1080 },
+        slides: [
+          textOnlySlide('slide-1', 'Market Context Today'),
+          textOnlySlide('slide-2', 'Customer Pain Points'),
+          textOnlySlide('slide-3', 'Our Strategic Response'),
+          textOnlySlide('slide-4', 'Execution Roadmap Ahead'),
+          textOnlySlide('slide-5', 'Financial Model Summary'),
+          textOnlySlide('slide-6', 'Closing Call To Action')
+        ]
+      },
+      { requireSubstantialDeck: true, minSlideCount: 6 }
+    );
+
+    const deckLevelAnchorError = report.issues.find(
+      (issue) => issue.code === 'MISSING_VISUAL_ANCHOR' && issue.severity === 'error' && !issue.slideId
+    );
+    expect(deckLevelAnchorError).toBeDefined();
+    expect(report.ok).toBe(false);
+  });
+
   it('rejects shallow full-deck output when no short deck was requested', () => {
     const report = inspectDeckQuality({
       title: 'Market Expansion Strategy',
@@ -111,6 +151,22 @@ describe('inspectDeckQuality', () => {
     );
   });
 });
+
+function textOnlySlide(id: string, title: string): GeneratedDeck['slides'][number] {
+  // A well-styled, readable slide with a real headline and body copy but no
+  // image/chart/card/shape/etc. — i.e. no visual anchor.
+  const body =
+    'This slide carries its meaning through a clear, specific statement and enough supporting copy to read as a deliberate typographic composition rather than a stub.';
+  return {
+    id,
+    title,
+    html: `<section><h1 data-pepetex-id="${id}-headline" data-pepetex-type="headline">${title}</h1><p data-pepetex-id="${id}-body" data-pepetex-type="body">${body}</p></section>`,
+    css: `.pepetex-slide { position: relative; width: 1920px; height: 1080px; padding: 96px; background: linear-gradient(135deg, #0f172a, #2563eb); color: #ffffff; } .pepetex-slide h1 { font-size: 72px; font-weight: 800; line-height: 1.05; } .pepetex-slide p { font-size: 28px; line-height: 1.4; }`,
+    assets: [],
+    charts: [],
+    diagrams: []
+  };
+}
 
 function slide(id: string, title: string, anchorType: 'image' | 'chart' | 'card', layout: string): GeneratedDeck['slides'][number] {
   const anchorHtml =

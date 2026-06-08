@@ -40,7 +40,7 @@ const {
   duplicateSlide, moveSlide, deleteSlide, saveText, restoreRevision,
   forkDeck, moveDeckToWorkspace, copyDeck
 } = useDeck()
-const { activeRun, runHistory, activeTimeline, submitting, submitGeneration, resumeAskMode, cancelGeneration, loadHistory } = useGeneration()
+const { activeRun, runHistory, activeTimeline, submitting, submitGeneration, trackRun, resumeAskMode, cancelGeneration, loadHistory, stopPolling } = useGeneration()
 
 const leftMode = ref<'chat' | 'comments' | 'files'>('chat')
 const activeInspector = ref<InspectorPanel | null>(null)
@@ -176,6 +176,7 @@ watch(selectedDeckId, async (id) => {
   if (loadToken !== selectedDeckLoadToken || selectedDeckId.value !== id) return
   await loadHistory(id)
   if (loadToken !== selectedDeckLoadToken || selectedDeckId.value !== id) return
+  resubscribeInProgressRun()
   const workspaceId = deckDetail.value?.workspaceId
   if (workspaceId && workspaceId !== currentWorkspaceId.value) {
     syncingWorkspace.value = true
@@ -373,6 +374,16 @@ function clearInitialGenerationState(deckId: string) {
   const next = { ...initialGenerationByDeck.value }
   delete next[deckId]
   initialGenerationByDeck.value = next
+}
+
+// After a page refresh or deck switch, reattach the SSE stream to any in-flight run so its
+// live progress keeps updating without a manual refresh. Falls back to stopping a stale stream
+// from a previously selected deck when the new deck has nothing running.
+function resubscribeInProgressRun() {
+  if (!import.meta.client) return
+  const inProgress = runHistory.value.find((run) => run.status === 'PENDING' || run.status === 'RUNNING')
+  if (inProgress) trackRun(inProgress, handleGenerationSettled)
+  else stopPolling()
 }
 
 async function handleGenerationSettled(run: GenerationRunSummary) {
@@ -722,16 +733,32 @@ function runTimelineEntries(run: GenerationRunSummary): GenerationTimelineEntry[
   ].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
 }
 
-function isVisibleChatMessage(message: GenerationMessageItem) {
-  if (message.role === 'SYSTEM') return false
+const VISIBLE_SYSTEM_NOTE_KINDS = ['context_compacted', 'prompt_context_compacted']
 
+function messageMetadataKind(message: GenerationMessageItem): string | null {
+  const metadata = message.metadata && typeof message.metadata === 'object'
+    ? message.metadata as Record<string, unknown>
+    : null
+  return typeof metadata?.kind === 'string' ? metadata.kind : null
+}
+
+function isVisibleChatMessage(message: GenerationMessageItem) {
   const metadata = message.metadata && typeof message.metadata === 'object'
     ? message.metadata as Record<string, unknown>
     : null
 
+  // Surface a small note when the agent compacts its own conversation context.
+  if (message.role === 'SYSTEM') {
+    return VISIBLE_SYSTEM_NOTE_KINDS.includes(messageMetadataKind(message) ?? '')
+  }
+
   if (message.role === 'ASSISTANT' && metadata?.phase === 'prepare') return false
 
   return true
+}
+
+function isSystemNote(message: GenerationMessageItem) {
+  return message.role === 'SYSTEM'
 }
 
 function showRunStatusBanner(run: GenerationRunSummary) {
@@ -778,6 +805,8 @@ const AGENT_TOOL_LABELS: Record<string, string> = {
   request_approval: 'Requesting approval',
   read_deck_state: 'Reading deck state',
   plan_deck: 'Planning the deck',
+  write_todos: 'Updating the task list',
+  compact_context: 'Compacting conversation',
   read_design_system: 'Reading design system',
   list_reference_files: 'Listing reference files',
   read_reference_file: 'Reading reference file',
@@ -986,7 +1015,12 @@ function formatRunDate(v: string) {
           <div v-for="run in visibleRuns" :key="run.id" class="space-y-3">
             <template v-if="runTimelineEntries(run).length > 0">
               <div v-for="entry in runTimelineEntries(run)" :key="entry.id">
-                <div v-if="entry.kind === 'message'" class="flex" :class="entry.message.role === 'USER' ? 'justify-end' : 'gap-3'">
+                <div v-if="entry.kind === 'message' && isSystemNote(entry.message)" class="ml-11 flex items-start gap-2 rounded-2xl border border-dashed border-border bg-bg-subtle px-3 py-2 text-xs leading-5 text-fg-muted">
+                  <UIcon name="i-heroicons-arrows-pointing-in" class="mt-0.5 h-4 w-4 shrink-0 text-fg-subtle" />
+                  <span class="min-w-0 flex-1">{{ entry.message.content }}</span>
+                </div>
+
+                <div v-else-if="entry.kind === 'message'" class="flex" :class="entry.message.role === 'USER' ? 'justify-end' : 'gap-3'">
                   <div v-if="entry.message.role !== 'USER'" class="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-bg-subtle text-fg-subtle ring-1 ring-border">
                     <UIcon :name="messageAvatarIcon(entry.message)" class="h-4 w-4" />
                   </div>
@@ -1004,19 +1038,24 @@ function formatRunDate(v: string) {
                   <div class="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-bg-subtle text-fg-subtle ring-1 ring-border">
                     <UIcon name="i-heroicons-wrench-screwdriver" class="h-4 w-4" />
                   </div>
-                  <details class="min-w-0 flex-1 rounded-2xl border px-3 py-2 text-xs shadow-xs" :class="toolCallStatusClass(entry.toolCall.status)" :open="entry.toolCall.status === 'FAILED'">
+                  <details class="group min-w-0 flex-1 rounded-2xl border px-3 py-2 text-xs shadow-xs" :class="toolCallStatusClass(entry.toolCall.status)">
                     <summary class="flex cursor-pointer list-none items-center justify-between gap-3 font-bold">
                       <span class="flex min-w-0 items-center gap-2">
                         <UIcon :name="toolCallStatusIcon(entry.toolCall.status)" class="h-4 w-4 shrink-0" :class="entry.toolCall.status === 'RUNNING' ? 'animate-spin' : ''" />
-                        <span class="truncate">{{ toolDisplayLabel(entry.toolCall) }}</span>
+                        <span class="truncate">{{ toolDisplayLabel(entry.toolCall) }}{{ entry.toolCall.status === 'FAILED' ? ' failed' : '' }}</span>
                       </span>
-                      <span class="shrink-0 text-[10px] uppercase tracking-[0.14em] opacity-70">{{ entry.toolCall.status.toLowerCase() }}</span>
+                      <span class="flex shrink-0 items-center gap-1.5">
+                        <span class="text-[10px] uppercase tracking-[0.14em] opacity-70">{{ entry.toolCall.status.toLowerCase() }}</span>
+                        <UIcon name="i-heroicons-chevron-down" class="h-3.5 w-3.5 opacity-50 transition-transform group-open:rotate-180" />
+                      </span>
                     </summary>
                     <p v-if="entry.toolCall.errorMessage" class="mt-2 text-xs leading-5">{{ entry.toolCall.errorMessage }}</p>
                     <pre v-if="toolPayload(entry.toolCall)" class="mt-2 max-h-44 overflow-auto rounded-xl bg-white/70 p-3 text-[11px] leading-5 text-slate-800 scrollbar-soft">{{ toolPayload(entry.toolCall) }}</pre>
                   </details>
                 </div>
               </div>
+
+              <DeckTodoChecklist v-if="run.todos && run.todos.length" :todos="run.todos" />
 
               <div v-if="run.latestCheckpoint" class="ml-11 rounded-2xl border border-border bg-bg-subtle px-3 py-2 text-xs text-fg-muted">
                 <span class="font-black text-fg">Latest checkpoint:</span>

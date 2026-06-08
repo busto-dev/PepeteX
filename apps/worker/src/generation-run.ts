@@ -2006,6 +2006,7 @@ interface AgenticRuntimeState {
   consecutiveSameErrorCount: number;
   requiredCommentIds: Set<string>;
   addressedCommentIds: Set<string>;
+  forceCompactRequested: boolean;
 }
 
 export interface MastraStreamMirrorDiagnostics {
@@ -2427,6 +2428,51 @@ export function buildRepeatedDraftErrorEscalation(repeatCount: number): string {
   );
 }
 
+type AgentTodoStatus = 'pending' | 'in_progress' | 'completed';
+interface AgentTodoItem {
+  content: string;
+  activeForm: string;
+  status: AgentTodoStatus;
+}
+
+/**
+ * Normalizes a model-supplied todo list: coerces fields, drops empty items, and clamps
+ * to exactly one in_progress item (Claude Code semantics) instead of throwing, so a sloppy
+ * tool call never aborts the run. The first in_progress item wins; later ones become pending.
+ */
+function normalizeTodos(todos: AgentTodoItem[]): AgentTodoItem[] {
+  const statuses: AgentTodoStatus[] = ['pending', 'in_progress', 'completed'];
+  let inProgressSeen = false;
+
+  return (Array.isArray(todos) ? todos : [])
+    .map((todo) => {
+      const content = typeof todo?.content === 'string' ? todo.content.trim() : '';
+      const activeForm = typeof todo?.activeForm === 'string' && todo.activeForm.trim()
+        ? todo.activeForm.trim()
+        : content;
+      const status = statuses.includes(todo?.status) ? todo.status : 'pending';
+      return { content, activeForm, status };
+    })
+    .filter((todo) => todo.content.length > 0)
+    .map((todo) => {
+      if (todo.status !== 'in_progress') return todo;
+      if (inProgressSeen) return { ...todo, status: 'pending' as const };
+      inProgressSeen = true;
+      return todo;
+    });
+}
+
+function summarizePlanForMessage(plan: unknown): string {
+  const record = plan && typeof plan === 'object' ? (plan as Record<string, unknown>) : null;
+  const summary = record && typeof record.summary === 'string' ? record.summary.trim() : '';
+  const slides = record && Array.isArray(record.slides) ? record.slides : [];
+  const slideCount = slides.length;
+  if (summary && slideCount > 0) return `Planned the deck: ${summary} (${slideCount} slides outlined).`;
+  if (summary) return `Planned the deck: ${summary}`;
+  if (slideCount > 0) return `Planned the deck outline (${slideCount} slides).`;
+  return 'Planned the deck.';
+}
+
 function createWorkerAgentRuntime(input: {
   run: GenerationRun;
   currentDeck: GeneratedDeck;
@@ -2462,7 +2508,8 @@ function createWorkerAgentRuntime(input: {
     lastRejectedErrorSignature: null,
     consecutiveSameErrorCount: 0,
     requiredCommentIds: new Set((input.submittedComments ?? []).map((comment) => comment.id)),
-    addressedCommentIds: new Set<string>()
+    addressedCommentIds: new Set<string>(),
+    forceCompactRequested: false
   };
 
   async function validateAndMaybeSaveDraft(
@@ -2528,7 +2575,60 @@ function createWorkerAgentRuntime(input: {
   const runtime: PepeteXAgentToolRuntime = {
     getDraftDeck: () => cloneGeneratedDeck(draftDeck),
     getCurrentDeck: () => cloneGeneratedDeck(currentDeck),
-    savePlan: async (plan) => ({ status: 'ok' as const, plan }),
+    savePlan: async (plan) => {
+      // Persistence is best-effort: a failure here must never abort the generation run.
+      try {
+        await prisma.generationRun.update({
+          where: { id: run.id },
+          data: { planJson: asUnknownJsonInput(plan) }
+        });
+        await recordGenerationMessage(run.id, 'SYSTEM', summarizePlanForMessage(plan), {
+          kind: 'plan',
+          plan
+        });
+      } catch (error) {
+        console.error('Failed to persist deck plan.', {
+          generationRunId: run.id,
+          error: error instanceof Error ? error.message : String(error)
+        });
+      }
+      return { status: 'ok' as const, plan };
+    },
+    writeTodos: async ({ todos }) => {
+      const normalized = normalizeTodos(todos);
+      try {
+        await prisma.generationRun.update({
+          where: { id: run.id },
+          data: { todosJson: asUnknownJsonInput(normalized) }
+        });
+      } catch (error) {
+        console.error('Failed to persist agent todos.', {
+          generationRunId: run.id,
+          error: error instanceof Error ? error.message : String(error)
+        });
+      }
+      return { status: 'ok' as const, todos: normalized };
+    },
+    recordCompactionEvent: async ({ detail, tokensBefore, tokensAfter }) => {
+      await recordGenerationMessage(run.id, 'SYSTEM', detail, {
+        kind: 'context_compacted',
+        tokensBefore,
+        tokensAfter
+      }).catch((error) => {
+        console.error('Failed to record context compaction event.', {
+          generationRunId: run.id,
+          error: error instanceof Error ? error.message : String(error)
+        });
+      });
+    },
+    requestContextCompaction: () => {
+      state.forceCompactRequested = true;
+    },
+    consumeForceCompactFlag: () => {
+      const requested = state.forceCompactRequested;
+      state.forceCompactRequested = false;
+      return requested;
+    },
     writeSlide: async (toolInput) => {
       await assertGenerationRunNotCancelled(run.id);
       const summary = toolInput.summary ?? `Agent wrote slide: ${toolInput.slide.title}`;
@@ -2724,6 +2824,10 @@ function getAgentToolLabel(toolName: string): string {
       return 'Reading deck state';
     case 'plan_deck':
       return 'Planning the deck';
+    case 'write_todos':
+      return 'Updating the task list';
+    case 'compact_context':
+      return 'Compacting conversation';
     case 'read_design_system':
       return 'Reading design system';
     case 'list_reference_files':
@@ -2742,14 +2846,6 @@ function getAgentToolLabel(toolName: string): string {
       return 'Committing deck revision';
     case 'updateWorkingMemory':
       return 'Updating agent memory';
-    case 'agent-intentPlannerAgent':
-      return 'Delegating to intent planner';
-    case 'agent-deckAnalystAgent':
-      return 'Delegating to deck analyst';
-    case 'agent-contentCandidateAgent':
-      return 'Delegating to content candidate advisor';
-    case 'agent-patchAdvisorAgent':
-      return 'Delegating to patch advisor';
     default:
       return toolName.replace(/_/g, ' ');
   }

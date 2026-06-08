@@ -201,7 +201,8 @@ export const useGeneration = () => {
   async function loadHistory(deckId: string, limit = 100) {
     try {
       const data = await $fetch<{ runs: GenerationRunSummary[] }>(`/api/decks/${deckId}/generations`, {
-        query: { limit }
+        query: { limit },
+        headers: ssrCookieHeaders()
       })
       runHistory.value = data.runs
       activeTimeline.value = [...data.runs].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())

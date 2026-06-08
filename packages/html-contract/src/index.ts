@@ -35,9 +35,39 @@ export const allowedElementTypes = [
 export const editableTextElementTypes = ['headline', 'body', 'cta'] as const;
 
 const elementTypeAliases = {
+  // text-like synonyms the model reaches for instead of "body"
   label: 'body',
   subtitle: 'body',
-  text: 'body'
+  subheading: 'body',
+  subhead: 'body',
+  subhead1: 'body',
+  paragraph: 'body',
+  text: 'body',
+  caption: 'body',
+  eyebrow: 'body',
+  // title synonyms — the model frequently emits these for the dominant title
+  heading: 'headline',
+  title: 'headline',
+  // structural containers that should be plain "group" wrappers
+  container: 'group',
+  wrapper: 'group',
+  section: 'group',
+  column: 'group',
+  row: 'group',
+  grid: 'group',
+  panel: 'group',
+  // list / bullet synonyms
+  bullet: 'list',
+  bullets: 'list',
+  // visual synonyms
+  icon: 'decorative',
+  img: 'image',
+  picture: 'image',
+  photo: 'image',
+  illustration: 'image',
+  button: 'cta',
+  stat: 'metric',
+  kpi: 'metric'
 } as const;
 
 export const allowedRootTags = ['section', 'div'] as const;
@@ -359,6 +389,31 @@ function normalizePepeteXElementType(value: string): PepeteXElementType | null {
   }
 
   return elementTypeAliases[value as keyof typeof elementTypeAliases] ?? null;
+}
+
+// An unrecognized data-pepetex-type is not a security issue (forbidden TAGS are
+// enforced separately) and hard-failing on it just burns repair attempts. Coerce
+// it to the closest safe type based on the element shape and emit a warning so the
+// model can self-correct without the whole slide being rejected.
+function coerceUnknownElementType(element: Element): PepeteXElementType {
+  const tagName = element.tagName.toLowerCase();
+  if (tagName === 'img' || tagName === 'svg' || tagName === 'picture') {
+    return 'image';
+  }
+  if (tagName === 'table') {
+    return 'table';
+  }
+  if (/^h[1-6]$/.test(tagName)) {
+    return 'headline';
+  }
+
+  const hasChildElements = element.children.length > 0;
+  const text = element.textContent?.trim() ?? '';
+  if (!hasChildElements && text.length > 0) {
+    return 'body';
+  }
+
+  return 'group';
 }
 
 export function validateGeneratedDeckSchema(input: unknown): GeneratedDeckSchemaValidationResult {
@@ -1447,44 +1502,22 @@ function validateElementContracts(
     const snippet = snapshotElementSnippet(element);
 
     if (elementType) {
-      const normalizedElementType = normalizePepeteXElementType(elementType);
-      if (!normalizedElementType) {
-        state.errors.push(
-          createError(
-            'SCHEMA_INVALID',
-            path,
-            `data-pepetex-type="${elementType}" is not allowed.`,
-            `Use one of: ${allowedElementTypes.join(', ')}. Plain layout <div>s without data-pepetex-* are fine and do not need a type.`,
-            snippet
-          )
-        );
-        continue;
-      }
+      const aliasOrSelf = normalizePepeteXElementType(elementType);
+      const resolvedElementType = aliasOrSelf ?? coerceUnknownElementType(element);
 
-      if (normalizedElementType !== elementType) {
-        element.setAttribute('data-pepetex-type', normalizedElementType);
+      if (resolvedElementType !== elementType) {
+        element.setAttribute('data-pepetex-type', resolvedElementType);
         state.warnings.push(
           createWarning(
             'SANITIZED_HTML',
             path,
-            `data-pepetex-type="${elementType}" was normalized to "${normalizedElementType}".`
+            aliasOrSelf
+              ? `data-pepetex-type="${elementType}" was normalized to "${resolvedElementType}".`
+              : `data-pepetex-type="${elementType}" is not a known PepeteX type; coerced to "${resolvedElementType}". Use one of: ${allowedElementTypes.join(', ')}.`
           )
         );
-        elementType = normalizedElementType;
+        elementType = resolvedElementType;
       }
-    }
-
-    if (elementType && !isAllowedElementType(elementType)) {
-      state.errors.push(
-        createError(
-          'SCHEMA_INVALID',
-          path,
-          `data-pepetex-type="${elementType}" is not allowed.`,
-          `Use one of: ${allowedElementTypes.join(', ')}. Plain layout <div>s without data-pepetex-* are fine and do not need a type.`,
-          snippet
-        )
-      );
-      continue;
     }
 
     if (elementId && !elementType) {
@@ -1626,7 +1659,8 @@ function validateAndNormalizeCss(
   }
 
   root.walkAtRules((rule) => {
-    if (rule.name.toLowerCase() === 'import') {
+    const atRuleName = rule.name.toLowerCase();
+    if (atRuleName === 'import') {
       errors.push(
         createError(
           'FORBIDDEN_CSS',
@@ -1635,6 +1669,17 @@ function validateAndNormalizeCss(
           'Inline the required styles and remove @import.'
         )
       );
+    } else if (atRuleName === 'keyframes' || atRuleName === '-webkit-keyframes') {
+      // Animations export as their static rendered state, so @keyframes is inert.
+      // Drop it with a warning instead of failing the whole slide.
+      warnings.push(
+        createWarning(
+          'WARNING_CSS',
+          `css.@${rule.name}`,
+          '@keyframes is ignored — dom-to-pptx exports the static rendered state, not animations.'
+        )
+      );
+      rule.remove();
     } else {
       errors.push(
         createError(
@@ -1718,12 +1763,14 @@ function validateCssDeclaration(
   }
 
   if (pptxUnsupportedCssPropertySet.has(property)) {
-    errors.push(
-      createError(
-        'FORBIDDEN_CSS',
+    // dom-to-pptx drops these decorative compositing properties, so the export is
+    // slightly flatter than the preview — but it is not a breakage. Keep the
+    // declaration (the preview still uses it) and warn so the model can self-correct.
+    warnings.push(
+      createWarning(
+        'WARNING_CSS',
         path,
-        `${property}:${value} is forbidden — it renders in the HTML preview but is silently dropped by dom-to-pptx, causing PPTX export to diverge from the preview.`,
-        'Replace with rgba() fills (e.g. rgba(R,G,B,0.30–0.55)) on solid layered shapes for the same translucent look in both preview and export.'
+        `${property}:${value} renders in the HTML preview but is dropped by dom-to-pptx, so the exported .pptx will look slightly flatter here. For a guaranteed match, layer solid rgba() fills (e.g. rgba(R,G,B,0.30–0.55)) instead.`
       )
     );
   }
@@ -1771,13 +1818,16 @@ function validateCssDeclaration(
     );
   }
 
-  if (property === 'transform' && !isDomToPptxSupportedTransform(normalizedValue)) {
-    errors.push(
-      createError(
-        'FORBIDDEN_CSS',
+  if (property === 'transform' && classifyTransformFidelity(normalizedValue) === 'risky') {
+    // dom-to-pptx is a coordinate scraper: it measures each element's final
+    // on-screen rect, so transform: translate/rotate export at the correct place.
+    // Only scale/skew/matrix/perspective can shift text size or geometry, so those
+    // get a non-blocking warning rather than a hard rejection.
+    warnings.push(
+      createWarning(
+        'WARNING_CSS',
         path,
-        `transform:${value} is not allowed in slide CSS. Only rotate(...) maps reliably to PPTX; other transforms silently rasterize via html2canvas and lose precise positioning.`,
-        'Replace transform: translate/scale/skew/matrix with explicit left/top/width/height/font-size declarations. Keep rotate(...) when needed.'
+        `transform:${value} may shift in the exported .pptx — scale/skew/matrix/perspective are not natively mapped (translate and rotate export fine). Prefer explicit left/top/width/height/font-size when precise layout matters.`
       )
     );
   }
@@ -1796,17 +1846,15 @@ function validateCssDeclaration(
     );
   }
 
-  // Note: backdrop-filter and mix-blend-mode are already rejected above via
-  // pptxUnsupportedCssPropertySet. clip-path / mask / filter are still rejected
-  // here because dom-to-pptx either silently drops them or falls back to a
-  // html2canvas PNG raster, which loses crispness in the exported PPTX.
+  // backdrop-filter / mix-blend-mode are handled above via pptxUnsupportedCssPropertySet.
+  // dom-to-pptx maps filter:blur(...) to PPTX soft edges, but other filter/clip-path/mask
+  // effects may be dropped, so these are non-blocking fidelity warnings — not failures.
   if (property === 'clip-path' || property === 'mask' || property === 'filter') {
-    errors.push(
-      createError(
-        'FORBIDDEN_CSS',
+    warnings.push(
+      createWarning(
+        'WARNING_CSS',
         path,
-        `${property}:${value} is forbidden — dom-to-pptx either drops it or rasterizes the region to PNG via html2canvas, producing low-fidelity output in the exported PPTX.`,
-        'Achieve the visual with solid shapes, border-radius, box-shadow, or rgba() layered fills. For decorative cropping, position the asset at the canvas edge and let .pepetex-slide{overflow:hidden} clip it instead.'
+        `${property}:${value} renders in the preview; dom-to-pptx maps filter:blur to soft edges but may drop other ${property} effects, so the .pptx can differ slightly. Solid shapes, border-radius, and box-shadow export most reliably.`
       )
     );
   }
@@ -1852,8 +1900,28 @@ function validateCssDeclaration(
   }
 }
 
-function isDomToPptxSupportedTransform(normalizedValue: string): boolean {
-  return normalizedValue === 'none' || /^rotate\(\s*-?\d*\.?\d+(deg|rad|turn)\s*\)$/.test(normalizedValue);
+// dom-to-pptx maps rotate(...) to a native PPTX rotation and captures translate via
+// the element's final bounding rect, so both are fidelity-safe. scale/skew/matrix/
+// perspective (and any unrecognized function) can diverge in the export.
+function classifyTransformFidelity(normalizedValue: string): 'native' | 'safe' | 'risky' {
+  if (normalizedValue === 'none' || normalizedValue === '') {
+    return 'native';
+  }
+
+  const functionNames = Array.from(normalizedValue.matchAll(/([a-z0-9-]+)\s*\(/g), (match) => match[1]);
+  if (functionNames.length === 0) {
+    return 'risky';
+  }
+
+  for (const name of functionNames) {
+    const isRotate = name === 'rotate' || name === 'rotatez';
+    const isTranslate = name === 'translate' || name === 'translatex' || name === 'translatey';
+    if (!isRotate && !isTranslate) {
+      return 'risky';
+    }
+  }
+
+  return 'safe';
 }
 
 function scopeCssSelectorList(selector: string): string {

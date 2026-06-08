@@ -268,6 +268,8 @@ export interface GenerationRunSummary {
   agentStepCount: number
   inputTokensUsed: number
   outputTokensUsed: number
+  plan: unknown
+  todos: GenerationTodoItem[] | null
   askQuestion: string | null
   askOptionsJson: AskOption[] | null
   askAllowManualAnswer: boolean
@@ -278,6 +280,12 @@ export interface GenerationRunSummary {
   messages: GenerationMessageSummary[]
   toolCalls: GenerationToolCallSummary[]
   latestCheckpoint: GenerationCheckpointSummary | null
+}
+
+export interface GenerationTodoItem {
+  content: string
+  activeForm: string
+  status: 'pending' | 'in_progress' | 'completed'
 }
 
 // ─── Comments ────────────────────────────────────────────────────────────────

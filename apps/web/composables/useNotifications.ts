@@ -10,7 +10,7 @@ export const useNotifications = () => {
     loading.value = true
     try {
       const query = opts?.unreadOnly ? '?unreadOnly=true' : ''
-      const data = await $fetch<{ notifications: NotificationSummary[] }>(`/api/notifications${query}`)
+      const data = await $fetch<{ notifications: NotificationSummary[] }>(`/api/notifications${query}`, { headers: ssrCookieHeaders() })
       notifications.value = data.notifications
     } catch {
       notifications.value = []
