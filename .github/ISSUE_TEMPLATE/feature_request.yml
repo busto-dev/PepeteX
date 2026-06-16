@@ -1,0 +1,65 @@
+name: Feature request
+description: Suggest a new feature or improvement for PepeteX
+title: "[Feature]: "
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a new feature! Please describe the problem you are trying to solve before jumping to a specific solution — it helps us evaluate alternatives.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / motivation
+      description: What problem are you trying to solve? Who is affected?
+      placeholder: I'm frustrated when [...] because [...]
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: Describe the change you would like to see.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What other approaches did you consider, and why did you discard them?
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which part of PepeteX does this affect?
+      options:
+        - AI generation / workflows
+        - Providers (Gemini, OpenAI, image, etc.)
+        - Design systems
+        - Export (PPTX, thumbnails)
+        - Admin / RBAC
+        - UX / UI
+        - i18n
+        - Deployment / infra
+        - Docs
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Mockups, links, references, related issues, etc.
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Confirmations
+      options:
+        - label: I have searched existing issues and confirmed this is not a duplicate
+          required: true

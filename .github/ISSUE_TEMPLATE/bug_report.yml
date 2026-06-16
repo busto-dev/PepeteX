@@ -1,0 +1,116 @@
+name: Bug report
+description: Report a reproducible bug or regression in PepeteX
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug report! Please fill out the form below so we can reproduce and fix the issue quickly.
+
+        Before submitting, please:
+        - Search [existing issues](../) to avoid duplicates
+        - Make sure you are running the latest version
+        - Redact any secrets, API keys, or sensitive data from logs and screenshots
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the bug
+      description: A clear and concise description of what the bug is.
+      placeholder: When I do X, Y happens instead of Z.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Minimal steps required to reproduce the issue.
+      placeholder: |
+        1. Go to '...'
+        2. Click on '...'
+        3. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What actually happened? Include error messages, stack traces, and screenshots if helpful.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: provider
+    attributes:
+      label: AI provider in use
+      description: Which AI provider were you using when the bug occurred?
+      options:
+        - Gemini
+        - OpenAI-compatible
+        - CLI proxy
+        - Not applicable
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: deployment
+    attributes:
+      label: Deployment mode
+      options:
+        - Local dev (yarn dev)
+        - Docker Compose (self-hosted)
+        - Docker Compose (VM)
+        - Google Cloud Run
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version / commit
+      description: PepeteX version or commit SHA
+      placeholder: e.g. main@4ea35a5
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Node version, OS, browser, etc.
+      placeholder: |
+        - Node: 24.x
+        - OS: macOS 14.5
+        - Browser: Chrome 126
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Paste any relevant log output. Will be automatically formatted as code.
+      render: shell
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Confirmations
+      options:
+        - label: I have searched existing issues and confirmed this is not a duplicate
+          required: true
+        - label: I have removed any secrets, credentials, or sensitive data from this report
+          required: true
